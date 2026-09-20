@@ -1,7 +1,11 @@
+// This script builds the catalog, so it needs write access even on a host that
+// otherwise defaults to read-only. Must be set before the db module is required.
+process.env.DB_READONLY = '0';
+
 const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
-const { db, DB_PATH, initializeSchema } = require('../src/radio-db');
+const { db, DB_PATH, initializeSchema, finalize } = require('../src/radio-db');
 
 const workbookPath = path.resolve(process.argv[2] || path.join(__dirname, '../src/assets/Masters/Radio/radiomaster.xlsx'));
 const imageRoot = path.join(path.dirname(workbookPath), 'product-images');
@@ -242,4 +246,6 @@ function createQualityIssues(availableImages, productByStation) {
   }
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+main()
+  .then(finalize)
+  .catch((error) => { console.error(error); process.exitCode = 1; });

@@ -1,7 +1,11 @@
+// This script builds the catalog, so it needs write access even on a host that
+// otherwise defaults to read-only. Must be set before the db module is required.
+process.env.DB_READONLY = '0';
+
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
-const { db, DB_PATH, initializeSchema } = require('../src/db');
+const { db, DB_PATH, initializeSchema, finalize } = require('../src/db');
 
 let workbook;
 
@@ -369,7 +373,9 @@ function createQualityIssues() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then(finalize)
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });

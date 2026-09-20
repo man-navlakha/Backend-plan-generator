@@ -8,7 +8,12 @@ const DB_PATH = process.env.TRANSIT_DB_PATH || path.join(DATA_DIR, 'transit.db')
 // Serverless hosts mount the bundle read-only, so the catalog is opened read-only
 // there: creating the file, and WAL's -wal/-shm siblings, would both fail on EROFS.
 // Locally and in the import scripts it stays read-write so the catalog can be built.
-const READ_ONLY = process.env.DB_READONLY === '1' || Boolean(process.env.VERCEL);
+// The build step runs on the same host as the function but must WRITE the catalog,
+// so host detection is only the default: DB_READONLY set either way overrides it.
+const READ_ONLY =
+  process.env.DB_READONLY === '1' ? true
+  : process.env.DB_READONLY === '0' ? false
+  : Boolean(process.env.VERCEL);
 
 let handle = null;
 
@@ -175,4 +180,15 @@ function initializeSchema() {
 // the catalog is built during the import, not at boot.
 if (!READ_ONLY) initializeSchema();
 
-module.exports = { db, DB_PATH, initializeSchema };
+// A WAL database needs to create -wal/-shm sidecars even to be read, which fails on a
+// read-only mount. Import scripts call this when done so the shipped file is a plain
+// rollback-journal database with no sidecars.
+function finalize() {
+  if (READ_ONLY) return;
+  const handle = open();
+  handle.pragma('wal_checkpoint(TRUNCATE)');
+  handle.pragma('journal_mode = DELETE');
+  handle.close();
+}
+
+module.exports = { db, DB_PATH, initializeSchema, finalize };
