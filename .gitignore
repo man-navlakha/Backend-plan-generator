@@ -6,8 +6,7 @@ node_modules/
 .env.*
 !.env.example
 
-#Masters
-/src/assets/masters/
+
 
 # Logs
 *.log
