@@ -5,11 +5,41 @@ const Database = require('better-sqlite3');
 const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH = process.env.TRANSIT_DB_PATH || path.join(DATA_DIR, 'transit.db');
 
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+// Serverless hosts mount the bundle read-only, so the catalog is opened read-only
+// there: creating the file, and WAL's -wal/-shm siblings, would both fail on EROFS.
+// Locally and in the import scripts it stays read-write so the catalog can be built.
+const READ_ONLY = process.env.DB_READONLY === '1' || Boolean(process.env.VERCEL);
 
-const db = new Database(DB_PATH);
-db.pragma('foreign_keys = ON');
-db.pragma('journal_mode = WAL');
+let handle = null;
+
+// Opened on first use, not at require time: a missing catalog must not take down
+// routes that never touch it, such as the liveness probe.
+function open() {
+  if (handle) return handle;
+
+  if (READ_ONLY) {
+    handle = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+    handle.pragma('foreign_keys = ON');
+  } else {
+    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+    handle = new Database(DB_PATH);
+    handle.pragma('foreign_keys = ON');
+    handle.pragma('journal_mode = WAL');
+  }
+  return handle;
+}
+
+// Stands in for the connection so callers keep using `db.prepare(...)` unchanged.
+const db = new Proxy(Object.create(null), {
+  get(_target, property) {
+    const value = open()[property];
+    return typeof value === 'function' ? value.bind(handle) : value;
+  },
+  set(_target, property, value) {
+    open()[property] = value;
+    return true;
+  },
+});
 
 function initializeSchema() {
   db.exec(`
@@ -141,6 +171,8 @@ function initializeSchema() {
   `);
 }
 
-initializeSchema();
+// Building the schema needs a writable file, and a read-only host already has one:
+// the catalog is built during the import, not at boot.
+if (!READ_ONLY) initializeSchema();
 
 module.exports = { db, DB_PATH, initializeSchema };

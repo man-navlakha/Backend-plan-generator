@@ -19,6 +19,8 @@ const workbookPath = path.resolve(
   process.argv[2] || path.join(__dirname, '../src/assets/Masters/Transit/transitmaster.xlsx')
 );
 const imageDirectory = path.join(path.dirname(workbookPath), 'product-images');
+// Price options carry their own artwork, in a separate folder from the product shots.
+const priceOptionImageDirectory = path.join(path.dirname(workbookPath), 'price-option-images');
 
 function rows(sheetName) {
   const sheet = workbook.getWorksheet(sheetName);
@@ -327,10 +329,10 @@ function createQualityIssues() {
       currentValue: null, suggestedValue: '<existing image filename>',
       message: 'Required price-option image filename is blank.'
     });
-    else if (!fs.existsSync(path.join(imageDirectory, option.image))) add(record, {
+    else if (!fs.existsSync(path.join(priceOptionImageDirectory, option.image))) add(record, {
       ...common, severity: 'error', code: 'PRICE_OPTION_IMAGE_NOT_FOUND', field: 'Image',
       currentValue: option.image, suggestedValue: '<upload file or correct filename>',
-      message: 'Price-option image filename does not exist in the product-images folder.'
+      message: 'Price-option image filename does not exist in the price-option-images folder.'
     });
     if (option.offer_rate === null || option.offer_rate <= 0) add(record, {
       ...common, severity: 'error', code: 'INVALID_OFFER_RATE', field: 'Offer Rate',
