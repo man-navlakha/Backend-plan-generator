@@ -1,0 +1,61 @@
+{
+  "label": "Metro internal and external branding",
+  "extends": "transit",
+  "constraints": [
+    {
+      "id": "metro.printing_shown_separately",
+      "severity": "warn",
+      "message": "Metro splits Display Cost from Printing and Mounting because the mounting figure is large enough that the client is shown it.",
+      "source": "assets/formats/README.md"
+    },
+    {
+      "id": "metro.desk_filled_fields",
+      "severity": "block",
+      "message": "Route is not in the master. Leave it blank for the desk. Never generate or infer a route.",
+      "source": "metro_train/format.json column notes"
+    },
+    {
+      "id": "metro.addon_is_per_line",
+      "severity": "warn",
+      "message": "The printing and mounting option value is a single lump per line. Divide it down to per unit for the addon_per_unit column.",
+      "source": "pricing_option_values, for example Delhi Metro Line 2 at 1149000"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "metro.budget_too_thin",
+      "severity": "advise",
+      "when": {
+        "budget_below": 500000
+      },
+      "then": {
+        "suggest_media": [
+          "bus",
+          "auto"
+        ]
+      },
+      "message": "Below 5 lakh a metro buy yields very little. Bus or auto gives wider reach for the same money."
+    }
+  ],
+  "guidance": {
+    "do": [
+      "Read the line off the price option name where the master names one, such as Aqua Line.",
+      "Strip the city and line from the price option name to fill the Media Package column."
+    ],
+    "dont": [
+      "Never state a route, a train number or a train name. The desk fills these."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "100% Payment is to be made in advance",
+      "Final Creatives will be provided from clients end.",
+      "Lead Time will be of 10 to 12 Days, and would start after the Approval on the Final Creative.",
+      "We don't hold any responsibilities on number of leads generated due to campaign.",
+      "Rates are valid till 1 Month of submission of proposal. No Cancellation during the tenure of the Campaign.",
+      "Start Date & End Date Photographs to be provided with Gio tag."
+    ],
+    "pending": []
+  },
+  "key": "transit_metro"
+}

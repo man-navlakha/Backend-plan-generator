@@ -1,0 +1,48 @@
+{
+  "label": "FM radio spots",
+  "extends": "global",
+  "constraints": [
+    {
+      "id": "radio.cost_formula",
+      "severity": "block",
+      "message": "Radio is billed on seconds: spot_seconds x spots_per_day x days x rate_per_second, floored at the station minimum billing.",
+      "source": "radio/fm_radio/format.json"
+    },
+    {
+      "id": "radio.variant_rate",
+      "severity": "block",
+      "message": "The rate per second comes from the Variant row for the chosen time band, not the base price option rate. Using the base rate underprices every prime-time plan.",
+      "source": "Aamar FM: base 23, Prime Time 34, Across the day 31"
+    },
+    {
+      "id": "radio.min_billing",
+      "severity": "block",
+      "message": "Station minimum billing applies per station, commonly Rs 10,000.",
+      "source": "price_options.minimum_billing"
+    },
+    {
+      "id": "radio.rank_withheld",
+      "severity": "advise",
+      "message": "Hold the Rank column back on the client sheet where the master ranking is thin.",
+      "source": "radio/fm_radio/format.json column note"
+    }
+  ],
+  "scenarios": [],
+  "guidance": {
+    "do": [
+      "State the time band in full, including the clock hours.",
+      "Show total seconds so the client can check the arithmetic."
+    ],
+    "dont": [
+      "Never quote listenership as a guaranteed audience figure."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - as per mutual understanding",
+      "This offer is valid till Limited period of time"
+    ],
+    "pending": []
+  },
+  "key": "radio"
+}

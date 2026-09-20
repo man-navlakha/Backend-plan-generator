@@ -1,4 +1,10 @@
 const app = require('./app');
+const { validateAllRules } = require('./rules');
+
+// Fail at boot, not mid-plan: a malformed rules file would otherwise silently
+// disable a commercial restriction.
+const rules = validateAllRules();
+console.log(`Rules loaded: ${rules.files.length} files, ${rules.constraints} constraints`);
 
 const PORT = process.env.PORT || 3000;
 

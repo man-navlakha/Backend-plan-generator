@@ -1,0 +1,118 @@
+{
+  "slug": "fm_radio",
+  "family": "radio",
+  "media_type": "Radio",
+  "label": "Radio",
+  "sheet_name": "Radio",
+  "title": "PROPOSAL FOR RADIO ADVERTISING",
+  "terms_key": "radio",
+  "rules_key": "radio",
+  "unit_noun": "Second",
+  "source": "the layout the EP media team already sends for radio. Radio is billed on seconds: spot length x spots a day x days x rate per second, floored at the station minimum billing",
+  "template": "Radio.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "Time Band ( RODP )",
+      "field": "band_label",
+      "type": "text",
+      "width": 24
+    },
+    {
+      "header": "Radio Station",
+      "field": "display_name",
+      "type": "text",
+      "width": 24
+    },
+    {
+      "header": "Frequency",
+      "field": "frequency",
+      "type": "text",
+      "width": 11
+    },
+    {
+      "header": "City",
+      "field": "city",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 13
+    },
+    {
+      "header": "Language",
+      "field": "languages",
+      "type": "text",
+      "width": 18
+    },
+    {
+      "header": "Listenership (per week)",
+      "field": "listenership",
+      "type": "text",
+      "width": 17
+    },
+    {
+      "header": "Rank",
+      "field": "rank",
+      "type": "int",
+      "width": 8,
+      "note": "held back on the client sheet when the master ranking is thin"
+    },
+    {
+      "header": "Spot Duration (Seconds)",
+      "field": "spot_seconds",
+      "type": "int",
+      "width": 12
+    },
+    {
+      "header": "Spot Repetition (Daily)",
+      "field": "spots_per_day",
+      "type": "int",
+      "width": 13
+    },
+    {
+      "header": "Campaign Duration (Days)",
+      "field": "days",
+      "type": "int",
+      "width": 13
+    },
+    {
+      "header": "Total Seconds",
+      "field": "total_seconds",
+      "type": "int",
+      "width": 12
+    },
+    {
+      "header": "Rate per Second",
+      "field": "rate",
+      "type": "money2",
+      "width": 13
+    },
+    {
+      "header": "Cost",
+      "field": "cost",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 13
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15
+    }
+  ]
+}

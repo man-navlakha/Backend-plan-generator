@@ -1,0 +1,45 @@
+{
+  "label": "Premium, passenger and toy trains",
+  "extends": "transit",
+  "constraints": [
+    {
+      "id": "train.route_not_city",
+      "severity": "block",
+      "message": "A train is a route, not a city. Never match a train product on a city filter, match on route or origin and destination.",
+      "source": "Only 17 percent of passenger train names contain a parseable place, Konark Express and Mahanagari Express name no city"
+    },
+    {
+      "id": "train.desk_filled_fields",
+      "severity": "block",
+      "message": "Train number and the name a train is known by are not in the master. Leave them blank for the desk.",
+      "source": "passenger_train/format.json column notes"
+    },
+    {
+      "id": "train.duplicate_names",
+      "severity": "warn",
+      "message": "Train product names repeat heavily with different SKUs. Deduplicate before offering.",
+      "source": "Vande Bharat appears 79 times, Vande Bharat Express 10, Tejas Express 5"
+    }
+  ],
+  "scenarios": [],
+  "guidance": {
+    "do": [
+      "Name the coach and panel type being sold."
+    ],
+    "dont": [
+      "Never state a departure time or a guaranteed rake."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "100% Payment is to be made in advance",
+      "Final Creatives will be provided from clients end.",
+      "We don't hold any responsibilities on number of leads generated due to campaign.",
+      "Rates are valid till 1 Month of submission of proposal. No Cancellation during the tenure of the Campaign.",
+      "Lead Time will be of 10 to 15 Days after the Approval on the Final Creative.",
+      "Start Date & End Date Photographs to be provided with Gio tag."
+    ],
+    "pending": []
+  },
+  "key": "transit_train"
+}

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Radio media master, planning prices and data-quality review.">
+    <title>Radio Master / Planning Console</title>
+    <link rel="stylesheet" href="/transit/styles.css">
+    <link rel="stylesheet" href="/radio/styles.css">
+    <script src="/radio/app.js" defer></script>
+  </head>
+  <body>
+    <div class="route-line" aria-hidden="true"></div>
+    <header class="masthead">
+      <a class="brand" href="/radio/"><span class="brand-mark">FM</span><span><b>Radio Master</b><small>Planning console / on air</small></span></a>
+      <nav class="master-nav"><a href="/transit/">Transit</a><a class="active" href="/radio/">Radio</a></nav>
+      <div class="sync-state"><i></i><span>Database online</span></div>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div><p class="eyebrow">Audio media · station intelligence</p><h1 id="page-title">Tune into.<br><em>Every market.</em></h1></div>
+        <p class="hero-copy">A sales-ready view of radio stations, cities, languages, time bands, rates and variants for reliable media plan creation.</p>
+        <div class="frequency-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </section>
+      <section class="stats" aria-label="Radio database summary">
+        <article><span>Stations</span><strong id="stat-products">—</strong><small>radio inventory</small></article>
+        <article><span>Price formats</span><strong id="stat-options">—</strong><small>selling structures</small></article>
+        <article><span>Variants</span><strong id="stat-variants">—</strong><small>time-band choices</small></article>
+        <article class="stat-accent"><span>Quality notes</span><strong id="stat-issues">—</strong><small id="last-sync">loading source</small></article>
+      </section>
+      <section class="quality-banner" aria-labelledby="quality-title">
+        <div class="quality-signal">!</div><div><p class="eyebrow">Plan-readiness audit</p><h2 id="quality-title"><span id="quality-issues">—</span> items to review</h2><p><b id="quality-products">—</b> stations are affected, including the workbook’s Pending Fixes sheet.</p></div>
+        <a class="download-button" href="/api/radio/problems.csv" download><span>Download radio problems</span><small>CSV repair sheet ↓</small></a>
+      </section>
+      <section class="catalog" aria-labelledby="catalog-title">
+        <div class="section-heading"><div><span class="section-no">FM</span><h2 id="catalog-title">Station marketplace</h2></div><p id="result-label" aria-live="polite">Loading stations…</p></div>
+        <form class="filters radio-filters" id="filter-form" role="search">
+          <label class="search-field"><span>Search station, city or SKU</span><div><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 5 5"></path></svg><input id="search" type="search" placeholder="Try Radio Mirchi Mumbai"></div></label>
+          <label><span>City</span><select id="city"><option value="">All cities</option></select></label>
+          <label><span>Language</span><select id="language"><option value="">All languages</option></select></label>
+          <label><span>Tier</span><select id="tier"><option value="">All tiers</option></select></label>
+          <label><span>Data quality</span><select id="problem"><option value="">All records</option><option value="margin">Selling below buying</option><option value="any">Problems only</option><option value="clean">Clean records</option><option value="error">Errors only</option><option value="warning">Warnings only</option><option value="pending">Pending fixes</option><option value="location">Location problems</option><option value="pricing">Pricing problems</option><option value="image">Image problems</option></select></label>
+          <label><span>Order</span><select id="sort"><option value="source">Master order</option><option value="name">Station A–Z</option><option value="rank">Rank</option><option value="price_low">Lowest price</option><option value="price_high">Highest price</option></select></label>
+          <button class="reset-button" id="reset" type="button">Reset</button>
+        </form>
+        <div class="media-strip" id="tier-strip"></div>
+        <div class="inventory-head"><span>Station</span><span>Market</span><span>Audience</span><span>Client / buying price</span><span></span></div>
+        <div id="inventory" class="inventory" aria-live="polite"></div>
+        <p class="all-records-note">All matching radio stations are shown on this page.</p>
+      </section>
+    </main>
+    <footer><span>Radio Master Database</span><span>Excel → SQLite → Planner</span><span>Backend Plan Generator</span></footer>
+    <div class="drawer-shell" id="drawer-shell" hidden><button class="drawer-scrim" id="drawer-scrim" aria-label="Close details"></button><aside class="drawer" id="drawer" tabindex="-1"><button class="drawer-close" id="drawer-close" aria-label="Close">×</button><div id="drawer-content"></div></aside></div>
+    <template id="loading-template"><div class="loading-row"><i></i><i></i><i></i></div><div class="loading-row"><i></i><i></i><i></i></div><div class="loading-row"><i></i><i></i><i></i></div></template>
+  </body>
+</html>

@@ -6,9 +6,19 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "db:import": "node scripts/import-transit-master.js",
+    "db:audit": "node scripts/audit-transit.js",
+    "db:import:radio": "node scripts/import-radio-master.js",
+    "rules:validate": "node -e \"console.log(JSON.stringify(require('./src/rules').validateAllRules(),null,2))\"",
+    "plan:demo": "node scripts/render-demo-plan.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

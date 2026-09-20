@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EP plan rules",
+  "type": "object",
+  "required": [
+    "key"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "type": "string"
+    },
+    "extends": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "_note": {
+      "type": "string"
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "severity",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "block",
+              "warn",
+              "advise"
+            ]
+          },
+          "assert": {
+            "type": "object",
+            "required": [
+              "field",
+              "op",
+              "value"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "op": {
+                "enum": [
+                  ">=",
+                  "<=",
+                  "==",
+                  "!=",
+                  "in",
+                  "not_in",
+                  "between"
+                ]
+              },
+              "value": {}
+            }
+          },
+          "predicate": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "when",
+          "then",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "when": {
+            "type": "object"
+          },
+          "then": {
+            "type": "object"
+          },
+          "severity": {
+            "enum": [
+              "block",
+              "warn",
+              "advise"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "do": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dont": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "never_claim": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "first_time_advertiser": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tone": {
+          "type": "string"
+        }
+      }
+    },
+    "terms": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "match_policy": {
+      "type": "object"
+    }
+  }
+}

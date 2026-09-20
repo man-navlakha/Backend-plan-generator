@@ -1,0 +1,76 @@
+{
+  "slug": "e_rickshaw",
+  "family": "transit",
+  "media_type": "E Rickshaw",
+  "label": "E Rickshaw",
+  "sheet_name": "E Rickshaw",
+  "title": "Plan for - E Rickshaw Advertising",
+  "terms_key": "transit_auto",
+  "rules_key": "transit_auto",
+  "unit_noun": "E Rickshaw",
+  "source": "built from the rate master, priced per e rickshaw. Column set follows the auto sheet, it is the same street level buy",
+  "template": "E Rickshaw.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 16
+    },
+    {
+      "header": "Location",
+      "field": "market",
+      "type": "text",
+      "width": 18
+    },
+    {
+      "header": "No. of E Rickshaws",
+      "field": "qty",
+      "type": "int",
+      "width": 16
+    },
+    {
+      "header": "Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 26
+    },
+    {
+      "header": "Rate per E Rickshaw",
+      "field": "rate",
+      "type": "money",
+      "width": 16
+    },
+    {
+      "header": "Union Charges",
+      "field": "addon_per_unit",
+      "type": "money",
+      "width": 14,
+      "note": "the master carries no union line, the desk fills this per city"
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18 %",
+      "field": "gst",
+      "type": "money",
+      "width": 13
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "_note": "Media type to format folder. The renderer reads this, then the format.json inside the folder it points at.",
+  "families": {
+    "transit": [
+      "auto",
+      "bus",
+      "cab",
+      "metro_train",
+      "premium_train",
+      "passenger_train",
+      "toy_train",
+      "e_rickshaw",
+      "tricycle",
+      "mobile_van"
+    ],
+    "radio": [
+      "fm_radio"
+    ]
+  },
+  "media_types": {
+    "Auto": {
+      "slug": "auto",
+      "family": "transit",
+      "folder": "assets/formats/transit/auto",
+      "spec": "assets/formats/transit/auto/format.json",
+      "template": "assets/formats/transit/auto/Auto.xlsx",
+      "rules_key": "transit_auto"
+    },
+    "Bus": {
+      "slug": "bus",
+      "family": "transit",
+      "folder": "assets/formats/transit/bus",
+      "spec": "assets/formats/transit/bus/format.json",
+      "template": "assets/formats/transit/bus/Bus.xlsx",
+      "rules_key": "transit_bus"
+    },
+    "Cab": {
+      "slug": "cab",
+      "family": "transit",
+      "folder": "assets/formats/transit/cab",
+      "spec": "assets/formats/transit/cab/format.json",
+      "template": "assets/formats/transit/cab/Cab.xlsx",
+      "rules_key": "transit_cab"
+    },
+    "Metro Train": {
+      "slug": "metro_train",
+      "family": "transit",
+      "folder": "assets/formats/transit/metro_train",
+      "spec": "assets/formats/transit/metro_train/format.json",
+      "template": "assets/formats/transit/metro_train/Metro.xlsx",
+      "rules_key": "transit_metro"
+    },
+    "Premium Train": {
+      "slug": "premium_train",
+      "family": "transit",
+      "folder": "assets/formats/transit/premium_train",
+      "spec": "assets/formats/transit/premium_train/format.json",
+      "template": "assets/formats/transit/premium_train/Premium Train.xlsx",
+      "rules_key": "transit_train"
+    },
+    "Passanger Train": {
+      "slug": "passenger_train",
+      "family": "transit",
+      "folder": "assets/formats/transit/passenger_train",
+      "spec": "assets/formats/transit/passenger_train/format.json",
+      "template": "assets/formats/transit/passenger_train/Passenger Train.xlsx",
+      "rules_key": "transit_train"
+    },
+    "Toy Train": {
+      "slug": "toy_train",
+      "family": "transit",
+      "folder": "assets/formats/transit/toy_train",
+      "spec": "assets/formats/transit/toy_train/format.json",
+      "template": "assets/formats/transit/toy_train/Toy Train.xlsx",
+      "rules_key": "transit_train"
+    },
+    "E Rickshaw": {
+      "slug": "e_rickshaw",
+      "family": "transit",
+      "folder": "assets/formats/transit/e_rickshaw",
+      "spec": "assets/formats/transit/e_rickshaw/format.json",
+      "template": "assets/formats/transit/e_rickshaw/E Rickshaw.xlsx",
+      "rules_key": "transit_auto"
+    },
+    "Tricycle": {
+      "slug": "tricycle",
+      "family": "transit",
+      "folder": "assets/formats/transit/tricycle",
+      "spec": "assets/formats/transit/tricycle/format.json",
+      "template": "assets/formats/transit/tricycle/Tricycle.xlsx",
+      "rules_key": "transit"
+    },
+    "Mobile Van": {
+      "slug": "mobile_van",
+      "family": "transit",
+      "folder": "assets/formats/transit/mobile_van",
+      "spec": "assets/formats/transit/mobile_van/format.json",
+      "template": "assets/formats/transit/mobile_van/Mobile Van.xlsx",
+      "rules_key": "transit"
+    },
+    "Radio": {
+      "slug": "fm_radio",
+      "family": "radio",
+      "folder": "assets/formats/radio/fm_radio",
+      "spec": "assets/formats/radio/fm_radio/format.json",
+      "template": "assets/formats/radio/fm_radio/Radio.xlsx",
+      "rules_key": "radio"
+    }
+  },
+  "rules_dir": "assets/rules"
+}

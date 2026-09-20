@@ -1,0 +1,51 @@
+{
+  "label": "Transit family defaults",
+  "extends": "global",
+  "constraints": [
+    {
+      "id": "transit.qty_within_units",
+      "severity": "block",
+      "message": "Quantity must sit between price_units minimum and maximum and be a multiple of step.",
+      "source": "price_units"
+    },
+    {
+      "id": "transit.min_billing",
+      "severity": "block",
+      "message": "Line net must reach minimum_billing. Lift the quantity or the line cost to meet it.",
+      "source": "price_options.minimum_billing"
+    },
+    {
+      "id": "transit.rate_backcalc",
+      "severity": "warn",
+      "message": "Where minimum billing lifted the line, show rate = net / qty so the client sheet multiplies out. Note that minimum billing was applied.",
+      "source": "assets/formats/README.md"
+    },
+    {
+      "id": "transit.state_not_in_master",
+      "severity": "warn",
+      "message": "The transit master carries no city or state column. State is derived from the product name and must be desk-checked.",
+      "source": "products has no location columns, radio and cinema have a Location sheet"
+    }
+  ],
+  "scenarios": [],
+  "guidance": {
+    "do": [
+      "State the panel specification exactly as the master names it."
+    ],
+    "dont": [
+      "Never imply a vehicle runs a fixed route unless the master names one."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "100% Payment is to be made in advance",
+      "Final Creatives will be provided from clients end.",
+      "We don't hold any responsibilities on number of leads generated due to campaign.",
+      "Rates are valid till 1 Month of submission of proposal. No Cancellation during the tenure of the Campaign.",
+      "Start Date & End Date Photographs to be provided with Gio tag.",
+      "Lead time will be of 5 to 7 Days which would start after submission and the Approval on the Final creative."
+    ],
+    "pending": []
+  },
+  "key": "transit"
+}

@@ -1,4 +1,6 @@
 const express = require('express');
+const { db: transitDb } = require('../db');
+const { db: radioDb } = require('../radio-db');
 
 const router = express.Router();
 const startedAt = Date.now();
@@ -22,12 +24,12 @@ router.get('/', (req, res) => {
   });
 });
 
-// Readiness: can we serve traffic? Add dependency probes (db, cache, queues) here.
+// Readiness includes the SQLite dependency used by the transit catalog.
 router.get('/ready', async (req, res) => {
-  const checks = {};
-
-  // Example shape — replace with real probes as dependencies are added:
-  // checks.database = await probe('database', () => db.query('SELECT 1'));
+  const checks = {
+    transitDatabase: await probe('transit database', () => transitDb.prepare('SELECT 1').get()),
+    radioDatabase: await probe('radio database', () => radioDb.prepare('SELECT 1').get())
+  };
 
   const failed = Object.values(checks).filter((c) => c.status !== 'up');
   const status = failed.length === 0 ? 'ready' : 'not_ready';
@@ -41,7 +43,7 @@ router.get('/ready', async (req, res) => {
 
 /**
  * Runs a dependency check with a timeout so a hung dependency can't hang the probe.
- * Kept exported for use once real dependencies exist.
+ * Exported for any future dependency probes.
  */
 async function probe(name, fn, timeoutMs = 2000) {
   const start = Date.now();

@@ -1,0 +1,84 @@
+{
+  "slug": "metro_train",
+  "family": "transit",
+  "media_type": "Metro Train",
+  "label": "Metro",
+  "sheet_name": "Metro",
+  "title": "Transit Media : Metro Internal and External Branding Proposal",
+  "terms_key": "transit_metro",
+  "rules_key": "transit_metro",
+  "unit_noun": "Train",
+  "source": "client sheet supplied by the EP desk, the Imprexive Marketing proposal. Priced per train per month, with printing and mounting quoted separately from the display cost",
+  "template": "Metro.xlsx",
+  "columns": [
+    {
+      "header": "Sr.No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8.9
+    },
+    {
+      "header": "City",
+      "field": "market",
+      "type": "text",
+      "width": 9.6
+    },
+    {
+      "header": "Line",
+      "field": "metro_line",
+      "type": "text",
+      "width": 22.1,
+      "note": "read off the price option where the master names a line, Aqua Line or Line 3&4, otherwise the desk fills it"
+    },
+    {
+      "header": "Route",
+      "field": "route",
+      "type": "text",
+      "width": 29.4,
+      "note": "not on the master, the desk fills it, Tripunithura to Aluva"
+    },
+    {
+      "header": "Media Package",
+      "field": "package",
+      "type": "text",
+      "width": 35.1,
+      "note": "the price option with the city and line stripped off, Exterior Wrap or Interior Panels"
+    },
+    {
+      "header": "Train Units",
+      "field": "qty",
+      "type": "int",
+      "width": 13.1
+    },
+    {
+      "header": "Display Cost - 1 Month",
+      "field": "rate",
+      "type": "money",
+      "width": 19.0
+    },
+    {
+      "header": "Printing & Mounting",
+      "field": "addon_per_unit",
+      "type": "money",
+      "width": 17.3
+    },
+    {
+      "header": "Total Cost",
+      "field": "net",
+      "type": "money",
+      "width": 12.4
+    },
+    {
+      "header": "GST 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 9.3
+    },
+    {
+      "header": "Final cost with GST",
+      "field": "total",
+      "type": "money",
+      "width": 14.9
+    }
+  ]
+}

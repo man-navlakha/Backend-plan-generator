@@ -1,0 +1,72 @@
+{
+  "label": "City and state bus branding",
+  "extends": "transit",
+  "constraints": [
+    {
+      "id": "bus.duration_required",
+      "severity": "block",
+      "assert": {
+        "field": "duration_months",
+        "op": ">=",
+        "value": 1
+      },
+      "message": "Bus is priced per bus per month. A duration in months is required.",
+      "source": "336 of 337 bus price options carry a Month unit"
+    },
+    {
+      "id": "bus.full_wrap_availability",
+      "severity": "block",
+      "message": "Full Wrap and Full Bus Branding are distinct panel specifications and are not offered in every city. Do not sell All 3 Sides as full body.",
+      "source": "Media Type attribute: Full Wrap 30, Full Bus Branding 41, All 3 Sides 5. Lucknow has no full wrap option.",
+      "fix": "Report infeasible under exact_only and list the panel specs the city does offer."
+    },
+    {
+      "id": "bus.rate_spread",
+      "severity": "warn",
+      "message": "Two bus options in the same city with the same panel spec and size differ by more than 3x. Do not choose on price until the desk confirms the rates are real.",
+      "source": "Lucknow: Marco Polo 15000, Solus Mazda 4200, Tata Marco Polo 1800, all 100 sqft All 3 Sides"
+    },
+    {
+      "id": "bus.state_network_scope",
+      "severity": "warn",
+      "message": "State-level networks such as UPSRTC run across the state, not within one city. They satisfy a state brief but not a city-only brief.",
+      "source": "UPSRTC - State Level, tier 1;2;3;4"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "bus.city_only_vs_state_network",
+      "severity": "block",
+      "when": {
+        "brief_says_city_only": true,
+        "product_scope": "state_level"
+      },
+      "then": {
+        "action": "exclude",
+        "flag": "scope_conflict"
+      },
+      "message": "Brief says city only but the product is a state network. Exclude and flag, even when include_state_networks is true."
+    }
+  ],
+  "guidance": {
+    "do": [
+      "Show Display Charges, Printing and Installation, and Charges Per Bus Per Month as three separate columns.",
+      "Name the bus type, it is what distinguishes the rate."
+    ],
+    "dont": [
+      "Never describe All 3 Sides (Side + Back) as a full wrap or full body."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "100% Payment is to be made in advance",
+      "Final Creatives will be provided from clients end.",
+      "We don't hold any responsibilities on number of leads generated due to campaign.",
+      "Rates are valid till 1 Month of submission of proposal. No Cancellation during the tenure of the Campaign.",
+      "Start Date & End Date Photographs to be provided with Gio tag.",
+      "Lead time will be of 5 to 7 Days which would start after submission and the Approval on the Final creative."
+    ],
+    "pending": []
+  },
+  "key": "transit_bus"
+}

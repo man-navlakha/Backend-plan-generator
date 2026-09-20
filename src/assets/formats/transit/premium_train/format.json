@@ -1,0 +1,95 @@
+{
+  "slug": "premium_train",
+  "family": "transit",
+  "media_type": "Premium Train",
+  "label": "Premium Train",
+  "sheet_name": "Premium Train",
+  "title": "Transit Media : Premium Train Branding",
+  "terms_key": "transit_train",
+  "rules_key": "transit_train",
+  "unit_noun": "Train",
+  "source": "built from the rate master, priced per train per month. The sampling sheet the desk sends for Vande Bharat, Shatabdi and Rajdhani sits beside this one as Premium Train - Sampling.xlsx",
+  "template": "Premium Train.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "Train No.",
+      "field": "train_no",
+      "type": "text",
+      "width": 12,
+      "note": "not on the master, the desk fills it from the route sheet"
+    },
+    {
+      "header": "Train Name",
+      "field": "product",
+      "type": "text",
+      "width": 34
+    },
+    {
+      "header": "Well Known As",
+      "field": "known_as",
+      "type": "text",
+      "width": 24,
+      "note": "not on the master, the desk fills it"
+    },
+    {
+      "header": "Key Cities Covered",
+      "field": "route",
+      "type": "text",
+      "width": 44
+    },
+    {
+      "header": "States Under Route",
+      "field": "state",
+      "type": "text",
+      "width": 22
+    },
+    {
+      "header": "Branding Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 30
+    },
+    {
+      "header": "No. of Trains",
+      "field": "qty",
+      "type": "int",
+      "width": 13
+    },
+    {
+      "header": "Months",
+      "field": "months",
+      "type": "int",
+      "width": 10
+    },
+    {
+      "header": "Rate Per Train Per Month",
+      "field": "rate",
+      "type": "money",
+      "width": 20
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 16
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 16
+    }
+  ]
+}

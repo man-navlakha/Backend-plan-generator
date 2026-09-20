@@ -1,0 +1,76 @@
+{
+  "slug": "auto",
+  "family": "transit",
+  "media_type": "Auto",
+  "label": "Auto",
+  "sheet_name": "Auto Hood",
+  "title": "Plan for - Auto Advertising",
+  "terms_key": "transit_auto",
+  "rules_key": "transit_auto",
+  "unit_noun": "Auto",
+  "source": "client sheet supplied by the EP desk",
+  "template": "Auto.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 16
+    },
+    {
+      "header": "Location",
+      "field": "market",
+      "type": "text",
+      "width": 18
+    },
+    {
+      "header": "No. of Auto",
+      "field": "qty",
+      "type": "int",
+      "width": 12
+    },
+    {
+      "header": "Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 26
+    },
+    {
+      "header": "Rate per Auto",
+      "field": "rate",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "Union Charges",
+      "field": "addon_per_unit",
+      "type": "money",
+      "width": 14,
+      "note": "the master carries no union line, the desk fills this per city"
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18 %",
+      "field": "gst",
+      "type": "money",
+      "width": 13
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "slug": "passenger_train",
+  "family": "transit",
+  "media_type": "Passanger Train",
+  "label": "Passenger Train",
+  "sheet_name": "Passenger Train",
+  "title": "Transit Media : Passenger Train Branding",
+  "terms_key": "transit_train",
+  "rules_key": "transit_train",
+  "unit_noun": "Train",
+  "source": "built from the rate master. The master spells this media type Passanger Train, the sheet does not repeat the typo",
+  "template": "Passenger Train.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "Train No.",
+      "field": "train_no",
+      "type": "text",
+      "width": 12,
+      "note": "not on the master, the desk fills it from the route sheet"
+    },
+    {
+      "header": "Train Name",
+      "field": "product",
+      "type": "text",
+      "width": 38
+    },
+    {
+      "header": "Route / Key Cities",
+      "field": "route",
+      "type": "text",
+      "width": 40
+    },
+    {
+      "header": "States Under Route",
+      "field": "state",
+      "type": "text",
+      "width": 22
+    },
+    {
+      "header": "Branding Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 30,
+      "note": "exterior panels, internal panels or LED screens"
+    },
+    {
+      "header": "No. of Trains",
+      "field": "qty",
+      "type": "int",
+      "width": 13
+    },
+    {
+      "header": "Months",
+      "field": "months",
+      "type": "int",
+      "width": 10
+    },
+    {
+      "header": "Rate Per Train Per Month",
+      "field": "rate",
+      "type": "money",
+      "width": 20
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 16
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 16
+    }
+  ]
+}

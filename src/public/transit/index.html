@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Browse and inspect the transit media master database.">
+    <title>Transit Master / Inventory Desk</title>
+    <link rel="stylesheet" href="/transit/styles.css">
+    <script src="/transit/app.js" defer></script>
+  </head>
+  <body>
+    <div class="route-line" aria-hidden="true"></div>
+    <header class="masthead">
+      <a class="brand" href="/transit/" aria-label="Transit Master home">
+        <span class="brand-mark">TM</span>
+        <span><b>Transit Master</b><small>Inventory desk / 01</small></span>
+      </a>
+      <div class="sync-state"><i></i><span>Database online</span></div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Media operations · India network</p>
+          <h1 id="page-title">Every route.<br><em>One master.</em></h1>
+        </div>
+        <p class="hero-copy">A live view of transit products, placement formats, pricing structures and media specifications imported from the master workbook.</p>
+        <div class="hero-index" aria-hidden="true">01—10</div>
+      </section>
+
+      <section class="stats" aria-label="Database summary">
+        <article><span>Products</span><strong id="stat-products">—</strong><small>active inventory</small></article>
+        <article><span>Price options</span><strong id="stat-options">—</strong><small>buying formats</small></article>
+        <article><span>Price units</span><strong id="stat-units">—</strong><small>quantity rules</small></article>
+        <article class="stat-accent"><span>Network types</span><strong id="stat-media">—</strong><small id="last-sync">loading source</small></article>
+      </section>
+
+      <section class="quality-banner" aria-labelledby="quality-title">
+        <div class="quality-signal" aria-hidden="true">!</div>
+        <div>
+          <p class="eyebrow">Master-file quality check</p>
+          <h2 id="quality-title"><span id="quality-issues">—</span> problems found</h2>
+          <p><b id="quality-products">—</b> products need review. Download the repair sheet for workbook rows, current values and suggested fixes.</p>
+        </div>
+        <a class="download-button" href="/api/transit/problems.csv" download>
+          <span>Download all problems</span><small>CSV repair sheet ↓</small>
+        </a>
+      </section>
+
+      <section class="catalog" aria-labelledby="catalog-title">
+        <div class="section-heading">
+          <div><span class="section-no">02</span><h2 id="catalog-title">Inventory directory</h2></div>
+          <p id="result-label" aria-live="polite">Loading inventory…</p>
+        </div>
+
+        <form class="filters" id="filter-form" role="search">
+          <label class="search-field">
+            <span>Search name, city or SKU</span>
+            <div><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 5 5"></path></svg><input id="search" name="search" type="search" autocomplete="off" placeholder="Try Delhi Metro"></div>
+          </label>
+          <label><span>Media type</span><select id="media-type" name="media_type"><option value="">All networks</option></select></label>
+          <label><span>Tier</span><select id="tier" name="tier"><option value="">All tiers</option></select></label>
+          <label class="problem-filter"><span>Data quality</span><select id="problem" name="problem"><option value="">All records</option><option value="margin">Selling below buying</option><option value="any">Problems only</option><option value="clean">Clean records</option><option value="error">Errors only</option><option value="warning">Warnings only</option><option value="duplicate">Duplicate SKUs</option><option value="product_image">Product images</option><option value="price_image">Price-option images</option><option value="pricing">All pricing problems</option><option value="sku">SKU format</option><option value="media">Media-type typo</option></select></label>
+          <label><span>Order</span><select id="sort" name="sort"><option value="source">Master order</option><option value="name">Name A–Z</option><option value="price_low">Lowest rate</option><option value="price_high">Highest rate</option><option value="newest">Latest row</option></select></label>
+          <button type="button" class="reset-button" id="reset">Reset</button>
+        </form>
+
+        <div class="media-strip" id="media-strip" aria-label="Filter by media type"></div>
+
+        <div class="inventory-head" aria-hidden="true">
+          <span>Asset</span><span>Network</span><span>Specification</span><span>Client / buying price</span><span></span>
+        </div>
+        <div id="inventory" class="inventory" aria-live="polite"></div>
+
+        <p class="all-records-note">All matching records are shown on this page.</p>
+      </section>
+    </main>
+
+    <footer><span>Transit Master Database</span><span>Excel → SQLite → API</span><span>Backend Plan Generator</span></footer>
+
+    <div class="drawer-shell" id="drawer-shell" hidden>
+      <button class="drawer-scrim" id="drawer-scrim" aria-label="Close details"></button>
+      <aside class="drawer" id="drawer" aria-labelledby="drawer-title" tabindex="-1">
+        <button class="drawer-close" id="drawer-close" aria-label="Close details">×</button>
+        <div id="drawer-content"></div>
+      </aside>
+    </div>
+
+    <template id="loading-template">
+      <div class="loading-row"><i></i><i></i><i></i></div>
+      <div class="loading-row"><i></i><i></i><i></i></div>
+      <div class="loading-row"><i></i><i></i><i></i></div>
+    </template>
+  </body>
+</html>

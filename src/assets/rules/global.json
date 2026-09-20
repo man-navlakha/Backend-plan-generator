@@ -1,0 +1,175 @@
+{
+  "label": "Applies to every medium",
+  "_note": "Cross-cutting policy. Media files extend this. Nothing here duplicates the master.",
+  "match_policy": {
+    "_note": "Defines what exact_only means. Resolved per dimension, not globally.",
+    "exact_only": {
+      "location": "block",
+      "spec": "block",
+      "quantity": "honour",
+      "duration": "honour",
+      "state_networks": "only_if_include_state_networks",
+      "on_block": "report_infeasible_and_list_nearest"
+    },
+    "flexible": {
+      "location": "nearest_in_state",
+      "spec": "nearest_available",
+      "quantity": "fit_to_budget",
+      "duration": "honour",
+      "state_networks": "allow",
+      "on_block": "substitute_and_flag"
+    }
+  },
+  "constraints": [
+    {
+      "id": "global.budget_gst_basis",
+      "severity": "block",
+      "message": "When budget_includes_gst is true the ex-GST ceiling is budget / 1.18. Never plan against the gross figure.",
+      "source": "brief field budget_includes_gst",
+      "fix": "net_ceiling = budget / (1 + gst_rate)"
+    },
+    {
+      "id": "global.gst_rate",
+      "severity": "warn",
+      "assert": {
+        "field": "gst",
+        "op": "==",
+        "value": 18
+      },
+      "message": "GST is 18 percent on every transit and radio option in the master. Flag any line that differs.",
+      "source": "price_options.gst"
+    },
+    {
+      "id": "global.printing_not_in_master",
+      "severity": "block",
+      "message": "Printing and mounting is absent from the master for most options. It must be priced by the desk and shown as a separate line. Never let a plan consume 100 percent of budget before printing is known.",
+      "source": "pricing_option_values is empty for the audited transit options",
+      "fix": "Hold a printing reserve, size the flexible leg after the reserve."
+    },
+    {
+      "id": "global.margin_unknown",
+      "severity": "warn",
+      "message": "specific_buying_rate is NULL. Margin cannot be verified on this line.",
+      "source": "data_quality_issues.MISSING_BUYING_RATE, 253 options"
+    },
+    {
+      "id": "global.selling_below_buying",
+      "severity": "block",
+      "message": "The quoted rate is at or below the buying rate. This line loses money.",
+      "source": "data_quality_issues.SELLING_BELOW_BUYING, 721 options",
+      "fix": "Quote offer_rate, not discounted_rate, or get the buying rate corrected."
+    },
+    {
+      "id": "global.dedupe_products",
+      "severity": "warn",
+      "message": "Product names repeat with different SKUs. Deduplicate by name before offering, or the same inventory is offered twice.",
+      "source": "181 duplicate product rows across 81 names, Vande Bharat appears 79 times"
+    },
+    {
+      "id": "global.on_request_excluded",
+      "severity": "block",
+      "assert": {
+        "field": "on_request",
+        "op": "!=",
+        "value": "Y"
+      },
+      "message": "On-request options carry no firm rate and cannot be auto-planned.",
+      "source": "price_options.on_request"
+    },
+    {
+      "id": "global.status_active",
+      "severity": "block",
+      "assert": {
+        "field": "status",
+        "op": "==",
+        "value": 1
+      },
+      "message": "Inactive products must never reach a client sheet.",
+      "source": "products.status and price_options.status"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "global.budget_underutilised",
+      "severity": "advise",
+      "when": {
+        "utilisation_below": 0.85
+      },
+      "then": {
+        "action": "offer_upsell",
+        "show_max_qty_within_budget": true
+      },
+      "message": "Plan uses under 85 percent of budget. Show the desk the maximum quantity the budget supports."
+    },
+    {
+      "id": "global.budget_overrun",
+      "severity": "block",
+      "when": {
+        "utilisation_above": 1.0
+      },
+      "then": {
+        "action": "report_infeasible",
+        "show_nearest_feasible": true
+      },
+      "message": "Plan exceeds budget. Report infeasible with the nearest feasible plan, never silently overspend."
+    },
+    {
+      "id": "global.first_time_advertiser",
+      "severity": "advise",
+      "when": {
+        "existing_advertiser": false
+      },
+      "then": {
+        "action": "attach_guidance_sheet"
+      },
+      "message": "First-time advertiser. Attach the guidance notes and set expectations on printing and lead time."
+    },
+    {
+      "id": "global.multi_media_brief",
+      "severity": "advise",
+      "when": {
+        "media_count_above": 1
+      },
+      "then": {
+        "action": "single_workbook",
+        "sheet_per_medium": true,
+        "add_summary_sheet": true
+      },
+      "message": "Multi-media plan. One workbook, one sheet per medium, plus a Summary sheet that totals them."
+    }
+  ],
+  "guidance": {
+    "do": [
+      "State the size in sqft for every unit.",
+      "Show the GST basis explicitly and say whether the total is inclusive.",
+      "Quote printing and mounting as a separate line, or say plainly that it is not yet quoted.",
+      "Name the exact product and panel specification being sold."
+    ],
+    "dont": [
+      "Never restate or round a total in narrative text. Reference the sheet.",
+      "Never fill a field the master does not carry. Leave it blank for the desk.",
+      "Never substitute a different city, medium or panel spec without flagging it."
+    ],
+    "never_claim": [
+      "guaranteed impressions",
+      "footfall numbers",
+      "reach percentages",
+      "audience figures",
+      "CPM or CPT",
+      "leads generated",
+      "return on investment"
+    ],
+    "first_time_advertiser": [
+      "Outdoor works on repeat exposure. Under one month rarely registers.",
+      "Printing and mounting is a real, separate cost. Budget for it from the start.",
+      "Artwork must be supplied per medium at the correct aspect ratio. One design does not scale across media.",
+      "Photographs are the deliverable proof, supplied after execution."
+    ],
+    "tone": "Plain, factual, commercial. No marketing superlatives. Indian number formatting."
+  },
+  "terms": {
+    "approved": [],
+    "pending": []
+  },
+  "key": "global"
+}

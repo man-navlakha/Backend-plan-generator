@@ -1,0 +1,76 @@
+{
+  "slug": "toy_train",
+  "family": "transit",
+  "media_type": "Toy Train",
+  "label": "Toy Train",
+  "sheet_name": "Toy Train",
+  "title": "Transit Media : Toy Train Branding",
+  "terms_key": "transit_train",
+  "rules_key": "transit_train",
+  "unit_noun": "Train",
+  "source": "built from the rate master, three rows only, Darjeeling route",
+  "template": "Toy Train.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 16
+    },
+    {
+      "header": "Route",
+      "field": "product",
+      "type": "text",
+      "width": 46
+    },
+    {
+      "header": "Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 34,
+      "note": "external, internal or product sampling"
+    },
+    {
+      "header": "No. of Trains",
+      "field": "qty",
+      "type": "int",
+      "width": 13
+    },
+    {
+      "header": "Months",
+      "field": "months",
+      "type": "int",
+      "width": 10
+    },
+    {
+      "header": "Rate Per Train Per Month",
+      "field": "rate",
+      "type": "money",
+      "width": 20
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 16
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 16
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "label": "Auto rickshaw and e-rickshaw branding",
+  "extends": "transit",
+  "constraints": [
+    {
+      "id": "auto.no_month_unit",
+      "severity": "block",
+      "message": "The auto master carries no Month unit, so a multi-month auto campaign cannot be priced from the master. The rate is treated as per auto per month by convention. Confirm with the desk before quoting any duration other than one month.",
+      "source": "0 of 1453 auto price options have a Month unit, against 336 of 337 for bus",
+      "fix": "Add a Month unit to the auto master, or record the convention here and state it on the sheet."
+    },
+    {
+      "id": "auto.min_quantity",
+      "severity": "block",
+      "message": "Auto hood branding carries a quantity floor, commonly 200 autos. Below the floor the medium cannot be bought at all.",
+      "source": "price_units Auto(s) minimum 200, maximum 1000"
+    },
+    {
+      "id": "auto.quote_offer_not_discounted",
+      "severity": "block",
+      "message": "Quote offer_rate. The discounted rate falls below the buying rate on some city auto options and loses money per unit.",
+      "source": "Auto Branding - Lucknow hood: offer 700, buying 650, discounted 630, a loss of 20 per auto"
+    },
+    {
+      "id": "auto.banner_unit_suspect",
+      "severity": "warn",
+      "message": "Auto Banner Branding shows Auto(s) min 1 max 12, which looks like a month range entered in the quantity field. Treat the banner quantity range as unverified.",
+      "source": "price_units on Auto Banner Branding"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "auto.below_floor_drop_leg",
+      "severity": "advise",
+      "when": {
+        "affordable_qty_below": 200
+      },
+      "then": {
+        "action": "drop_medium",
+        "explain": true
+      },
+      "message": "Budget left cannot reach the 200-auto floor. Drop the auto leg and say why rather than quoting an impossible quantity."
+    }
+  ],
+  "guidance": {
+    "do": [
+      "State the hood size in sqft, commonly 20 sqft.",
+      "Say that autos are not route-fixed and that a location chart is prepared by EP."
+    ],
+    "dont": [
+      "Never promise that specific autos will run in specific areas."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - 100% Advance",
+      "Installation will be done based on selected locations chart prepared by EP in every cities.",
+      "After the completion of the execution, photographs will be provided of each and every auto.",
+      "As it is an impossible task to track & monitor auto rickshaws, we hold no responsibility once the creatives are pasted on the given number of auto rickshaws.",
+      "Final Creatives will be provided from clients' end.",
+      "Execution Start date will vary as per locations and quantity of the campaign, As team may need to travel to some locations.",
+      "We don't hold any responsibilities on number of leads generated due to campaign.",
+      "Execution time line will vary on the quantity of Auto Branding.",
+      "Post Completion of the execution, we will be sharing with you Execution Photographs between 7 to 10 Working days.",
+      "We are not Liable to submit other than Photographs & Auto Number."
+    ],
+    "pending": []
+  },
+  "key": "transit_auto"
+}

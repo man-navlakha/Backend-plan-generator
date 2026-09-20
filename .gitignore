@@ -6,12 +6,23 @@ node_modules/
 .env.*
 !.env.example
 
+#Masters
+/src/assets/masters/
+
 # Logs
 *.log
 npm-debug.log*
+*.db-shm
+*.db-wal
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# Generated catalog (rebuild with npm run db:import)
+src/data/*.db
+
+# Generated plans
+output/

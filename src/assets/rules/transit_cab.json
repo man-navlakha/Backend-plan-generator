@@ -1,0 +1,54 @@
+{
+  "label": "Cab branding and roadshows",
+  "extends": "transit",
+  "constraints": [
+    {
+      "id": "cab.all_in_rate",
+      "severity": "warn",
+      "message": "Cab is quoted all-in. One Offer Rate including printing and mounting, with a duration beside it. There is no separate printing column on the cab sheet.",
+      "source": "assets/formats/README.md and cab/format.json"
+    },
+    {
+      "id": "cab.roadshow_limits",
+      "severity": "warn",
+      "message": "A roadshow day is 6 hours and 50 km. Additional time is Rs 1,000 per hour per cab and additional distance Rs 20 per km.",
+      "source": "Cab.xlsx T&C items 6 and 7"
+    },
+    {
+      "id": "cab.permission_cost",
+      "severity": "block",
+      "message": "Permission cost varies by location and is not in the master. Exact locations must be confirmed before the plan is final.",
+      "source": "Cab.xlsx T&C item 8"
+    },
+    {
+      "id": "cab.client_presence",
+      "severity": "advise",
+      "message": "A client representative must be present at the installation venue.",
+      "source": "Cab.xlsx T&C item 2"
+    }
+  ],
+  "scenarios": [],
+  "guidance": {
+    "do": [
+      "Show the all-in rate and the duration side by side.",
+      "State that a travelled-area report is provided at campaign end."
+    ],
+    "dont": [
+      "Never add a separate printing line to a cab sheet, it is already in the rate."
+    ]
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - 100% Advance",
+      "We require one of your personnel to be present at the venue where the Installation work will be going on.",
+      "Two-sided photographs will be provided of each cab after the installation work gets over.",
+      "The detailed customized report with all the areas travelled by each cab during the month will be provided at the end of the campaign.",
+      "Lead time will be of 7 Days after the Approval on the Final creative.",
+      "Roadshow Duration will be 6 Hours, with 50 Kms",
+      "Additional Time to be Charges Rs. 1,000/- Per Hour Per Cab & Additional Kms to be Charges Rs. 20/- Per Kms",
+      "Permission Cost Vary Location to Location, and for the same Before Confirming the Exact Locations will be Required."
+    ],
+    "pending": []
+  },
+  "key": "transit_cab"
+}

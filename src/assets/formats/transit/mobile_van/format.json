@@ -1,0 +1,82 @@
+{
+  "slug": "mobile_van",
+  "family": "transit",
+  "media_type": "Mobile Van",
+  "label": "Mobile Van",
+  "sheet_name": "Mobile Van",
+  "title": "Transit Media : Mobile Van Branding",
+  "terms_key": "transit",
+  "rules_key": "transit",
+  "unit_noun": "Van",
+  "source": "built from the rate master. Priced per van, with a Duration attribute of 7, 10, 15 or 30 days",
+  "template": "Mobile Van.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 16
+    },
+    {
+      "header": "City",
+      "field": "market",
+      "type": "text",
+      "width": 18
+    },
+    {
+      "header": "No. of Vans",
+      "field": "qty",
+      "type": "int",
+      "width": 12
+    },
+    {
+      "header": "Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 30
+    },
+    {
+      "header": "Duration",
+      "field": "duration",
+      "type": "text",
+      "width": 14,
+      "note": "7, 10, 15 or 30 days, off the master attribute"
+    },
+    {
+      "header": "Rate per Van",
+      "field": "rate",
+      "type": "money",
+      "width": 16
+    },
+    {
+      "header": "Printing & Installation Charges",
+      "field": "addon_per_unit",
+      "type": "money",
+      "width": 20
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 16
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 16
+    }
+  ]
+}
