@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "vercel-build": "DB_READONLY=0 node scripts/import-transit-master.js && DB_READONLY=0 node scripts/import-radio-master.js",
     "db:import": "node scripts/import-transit-master.js",
     "db:audit": "node scripts/audit-transit.js",
     "db:import:radio": "node scripts/import-radio-master.js",
