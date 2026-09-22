@@ -1,12 +1,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { normalizeReview, reviewClientBrief } = require('../src/engine/brief-review');
+const {
+  normalizeReview,
+  extractBudgetRange,
+  reviewClientBrief
+} = require('../src/engine/brief-review');
 
 test('normalizeReview keeps extracted facts and reports no missing required fields', () => {
   const result = normalizeReview({
     company: '  Awadh Foods Pvt. Ltd. ',
     budget: 1500000,
+    budget_min: null,
+    budget_max: null,
     campaign_objective: 'Brand awareness',
     target_audience: 'Working professionals',
     target_locations: ['Lucknow', 'Lucknow', ' Kanpur '],
@@ -28,6 +34,8 @@ test('normalizeReview never turns absent company or budget into usable values', 
   const result = normalizeReview({
     company: null,
     budget: null,
+    budget_min: null,
+    budget_max: null,
     target_locations: [],
     service_conflict: false,
     service_conflict_reason: null,
@@ -52,6 +60,8 @@ test('reviewClientBrief requests strict structured output and normalizes it', as
                 content: JSON.stringify({
                   company: 'Acme',
                   budget: 800000,
+                  budget_min: null,
+                  budget_max: null,
                   campaign_objective: null,
                   target_audience: null,
                   target_locations: ['Mumbai'],
@@ -82,4 +92,70 @@ test('reviewClientBrief requests strict structured output and normalizes it', as
   assert.equal(result.brief.budget, 800000);
   assert.deepEqual(result.missing_fields, []);
   assert.deepEqual(result.usage, { prompt_tokens: 20, completion_tokens: 10 });
+});
+
+test('normalizeReview uses the upper value of an explicit budget range', () => {
+  const result = normalizeReview({
+    company: 'Urban Aura',
+    budget: 700000,
+    budget_min: 500000,
+    budget_max: 700000,
+    target_locations: ['Ahmedabad'],
+    service_conflict: false,
+    service_conflict_reason: null,
+    warnings: ['Budget is tentative; the upper end of the range is used as the ceiling.']
+  });
+
+  assert.equal(result.brief.budget, 700000);
+  assert.equal(result.brief.budget_min, 500000);
+  assert.equal(result.brief.budget_max, 700000);
+  assert.deepEqual(result.missing_fields, []);
+});
+
+test('extractBudgetRange understands Indian lakh ranges without matching age ranges', () => {
+  assert.deepEqual(extractBudgetRange('Tentative Budget: ₹5–7 Lakhs.'), {
+    minimum: 500000,
+    maximum: 700000
+  });
+  assert.equal(extractBudgetRange('Target audience: age 20–40 years.'), null);
+});
+
+test('reviewClientBrief applies the deterministic range when model output misses it', async () => {
+  const fakeClient = {
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                company: 'Urban Aura',
+                budget: null,
+                budget_min: null,
+                budget_max: null,
+                campaign_objective: 'Brand awareness',
+                target_audience: null,
+                target_locations: ['Ahmedabad'],
+                remarks_for_media: null,
+                duration_months: null,
+                service_conflict: false,
+                service_conflict_reason: null,
+                warnings: ['Budget was ambiguous.']
+              })
+            }
+          }]
+        })
+      }
+    }
+  };
+
+  const result = await reviewClientBrief('Urban Aura. Tentative Budget: ₹5–7 Lakhs.', {
+    client: fakeClient,
+    model: 'test-model',
+    service: 'Cinema'
+  });
+
+  assert.equal(result.brief.budget, 700000);
+  assert.equal(result.brief.budget_min, 500000);
+  assert.equal(result.brief.budget_max, 700000);
+  assert.deepEqual(result.missing_fields, []);
 });

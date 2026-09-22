@@ -95,10 +95,19 @@ should be included whenever known. The AI extractor does not invent required inf
 query says `service=Radio` but the brief explicitly asks for bus branding, the API returns a service
 mismatch instead of creating a plan for the wrong medium.
 
+An explicit budget range is supported. For `₹5–7 Lakhs`, the extracted values are
+`budget_min: 500000`, `budget_max: 700000`, and `budget: 700000`. The upper end becomes the planning
+ceiling, while the original range and an explanatory warning remain in the stored brief.
+
 ### Complete curl request
 
 `--data-urlencode` is important because the brief can contain spaces, `&`, currency symbols, and
 other characters that would otherwise break the URL.
+
+For example, an unencoded `Fashion & Lifestyle` normally ends the `client_brief` value at
+`Fashion `. The endpoint includes a compatibility recovery for this common CRM mistake, but callers
+must still URL-encode the field because browsers, proxies, and other servers may alter it before it
+reaches the application.
 
 ```bash
 curl --get "https://backend-plan-generator.vercel.app/plans/generate" \
@@ -146,6 +155,8 @@ deal.
     "extracted": {
       "company": "Awadh Foods Pvt. Ltd.",
       "budget": 1500000,
+      "budget_min": null,
+      "budget_max": null,
       "campaign_objective": "Brand awareness",
       "target_audience": "Working professionals aged 25-40",
       "target_locations": ["Lucknow", "Kanpur"],

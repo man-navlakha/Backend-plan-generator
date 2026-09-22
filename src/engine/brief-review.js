@@ -33,7 +33,15 @@ const CLIENT_BRIEF_SCHEMA = {
     },
     budget: {
       anyOf: [{ type: 'number' }, { type: 'null' }],
-      description: 'The total campaign budget in Indian rupees. Null when it is missing or ambiguous.'
+      description: 'The planning ceiling in Indian rupees. For a stated range, use its upper value.'
+    },
+    budget_min: {
+      anyOf: [{ type: 'number' }, { type: 'null' }],
+      description: 'Lower end of an explicitly stated budget range, otherwise null.'
+    },
+    budget_max: {
+      anyOf: [{ type: 'number' }, { type: 'null' }],
+      description: 'Upper end of an explicitly stated budget range, otherwise null.'
     },
     campaign_objective: {
       anyOf: [{ type: 'string' }, { type: 'null' }]
@@ -69,6 +77,8 @@ const CLIENT_BRIEF_SCHEMA = {
   required: [
     'company',
     'budget',
+    'budget_min',
+    'budget_max',
     'campaign_objective',
     'target_audience',
     'target_locations',
@@ -88,8 +98,10 @@ Rules:
 - Extract only information explicitly present in the client brief. Never invent a company, budget,
   audience, location, objective, duration, date, or requirement.
 - Convert Indian budget expressions to rupees: for example, 15 lakh is 1500000 and 1.5 crore is
-  15000000. If a budget is a range, contradictory, or otherwise ambiguous, return null and explain
-  it in warnings.
+  15000000. For an explicit range such as 5-7 lakh, return budget_min 500000, budget_max 700000,
+  and use the upper value 700000 as budget because it is the spending ceiling. Add a warning that
+  the upper end is being used. For a single exact budget, budget_min and budget_max are null. Return
+  a null budget only when no usable amount is stated or amounts genuinely contradict each other.
 - Keep client constraints and additional planning details in remarks_for_media. Do not silently
   discard dates, exclusions, preferences, deliverables, or special instructions.
 - A duration may be converted to whole months only when that conversion is direct. Otherwise leave
@@ -111,14 +123,54 @@ function cleanStringArray(value) {
   return [...new Set(value.map(cleanText).filter(Boolean))];
 }
 
+function indianAmount(numberText, unitText) {
+  const value = Number(String(numberText || '').replace(/,/g, ''));
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const unit = String(unitText || '').toLowerCase();
+  if (/^crore/.test(unit)) return value * 10_000_000;
+  if (/^(?:lakh|lac)/.test(unit)) return value * 100_000;
+  return value;
+}
+
+/**
+ * Deterministic support for the common Indian range notation used by CRMs.
+ * Requiring lakh/lac/crore prevents an age range such as 20-40 years from
+ * being mistaken for money.
+ */
+function extractBudgetRange(clientBrief) {
+  const match = String(clientBrief || '').match(
+    /(?:₹|inr\s*|rs\.?\s*)?([\d,.]+)\s*(?:-|–|—|to)\s*(?:₹|inr\s*|rs\.?\s*)?([\d,.]+)\s*(lakhs?|lacs?|crores?)/i
+  );
+  if (!match) return null;
+
+  const first = indianAmount(match[1], match[3]);
+  const second = indianAmount(match[2], match[3]);
+  if (!first || !second) return null;
+
+  return {
+    minimum: Math.min(first, second),
+    maximum: Math.max(first, second)
+  };
+}
+
 /** Normalize model output again at the trust boundary. */
 function normalizeReview(value) {
-  const budget = Number(value?.budget);
+  const suppliedBudget = Number(value?.budget);
+  const suppliedMin = Number(value?.budget_min);
+  const suppliedMax = Number(value?.budget_max);
   const duration = Number(value?.duration_months);
+  const budgetMin = Number.isFinite(suppliedMin) && suppliedMin > 0 ? suppliedMin : null;
+  const budgetMax = Number.isFinite(suppliedMax) && suppliedMax > 0 ? suppliedMax : null;
+  const budget =
+    Number.isFinite(suppliedBudget) && suppliedBudget > 0
+      ? suppliedBudget
+      : budgetMax;
 
   const brief = {
     company: cleanText(value?.company),
     budget: Number.isFinite(budget) && budget > 0 ? budget : null,
+    budget_min: budgetMin,
+    budget_max: budgetMax,
     campaign_objective: cleanText(value?.campaign_objective),
     target_audience: cleanText(value?.target_audience),
     target_locations: cleanStringArray(value?.target_locations),
@@ -184,8 +236,22 @@ async function reviewClientBrief(clientBrief, options = {}) {
     throw error;
   }
 
+  const normalized = normalizeReview(parsed);
+  const deterministicRange = extractBudgetRange(clientBrief);
+  if (deterministicRange) {
+    normalized.brief.budget_min = deterministicRange.minimum;
+    normalized.brief.budget_max = deterministicRange.maximum;
+    normalized.brief.budget = deterministicRange.maximum;
+    normalized.missing_fields = normalized.missing_fields.filter((field) => field !== 'budget');
+    normalized.warnings = cleanStringArray([
+      ...normalized.warnings,
+      `Budget is a range; ${deterministicRange.maximum.toLocaleString('en-IN')} rupees ` +
+        'is used as the planning ceiling.'
+    ]);
+  }
+
   return {
-    ...normalizeReview(parsed),
+    ...normalized,
     model,
     usage: {
       prompt_tokens: response.usage?.prompt_tokens || 0,
@@ -197,6 +263,7 @@ async function reviewClientBrief(clientBrief, options = {}) {
 module.exports = {
   reviewClientBrief,
   normalizeReview,
+  extractBudgetRange,
   isConfigured,
   MODEL,
   CLIENT_BRIEF_SCHEMA

@@ -20,6 +20,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { buildPlan } = require('../engine/build');
 const { reviewClientBrief, isConfigured: isBriefReviewConfigured } = require('../engine/brief-review');
+const { clientBriefFromUrl } = require('../crm/query');
 const { planWorkbookBuffer } = require('../render');
 const planStorage = require('../storage/appwrite');
 const { checkService } = require('../catalog/availability');
@@ -321,7 +322,10 @@ router.get('/generate', wrap(async (req, res) => {
 
   const dealId = firstQueryValue(req.query.deal_id);
   const service = firstQueryValue(req.query.service);
-  const clientBrief = firstQueryValue(req.query.client_brief);
+  const clientBrief = clientBriefFromUrl(
+    req.originalUrl,
+    firstQueryValue(req.query.client_brief)
+  );
   const errors = [];
 
   if (!dealId) errors.push({ field: 'deal_id', message: 'Deal ID is required' });

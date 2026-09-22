@@ -256,6 +256,10 @@ async function selectWithModel(brief, prefetch, options = {}) {
             company: brief.company,
             service: brief.service,
             budget: brief.budget,
+            budget_range:
+              brief.budget_min && brief.budget_max
+                ? { minimum: brief.budget_min, maximum: brief.budget_max }
+                : null,
             objective: brief.campaign_objective,
             audience: brief.target_audience,
             locations: brief.target_locations,
