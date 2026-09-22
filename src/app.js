@@ -10,6 +10,15 @@ const plansRouter = require('./routes/plans');
 
 const app = express();
 
+/*
+ * Behind Vercel (and any other proxy) the TLS terminates upstream, so the
+ * request reaching this process is plain HTTP. Without this, `req.protocol`
+ * reads "http" and every download URL handed to a client is built as
+ * http://... -- which browsers upgrade or block, and which looks wrong in a
+ * quotation. Trusting the proxy makes req.protocol follow X-Forwarded-Proto.
+ */
+app.set('trust proxy', true);
+
 app.use(express.json());
 
 app.use('/transit', express.static(path.join(__dirname, 'public/transit')));

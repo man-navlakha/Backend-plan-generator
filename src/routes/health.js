@@ -81,7 +81,14 @@ router.get('/ready', async (req, res) => {
  */
 async function sqliteProbe(name, handle) {
   const result = await probe(`${name} database`, () => handle.prepare('SELECT 1').get());
-  if (result.status === 'down' && /unable to open|no such file|ENOENT/i.test(result.error || '')) {
+
+  // better-sqlite3 words this several ways depending on whether the file or its
+  // parent directory is missing, and Vercel hits the directory case ("Cannot
+  // open database because the directory does not exist"). All of them mean the
+  // same thing: the catalog was never built here.
+  const ABSENT = /unable to open|cannot open database|no such file|does not exist|ENOENT/i;
+
+  if (result.status === 'down' && ABSENT.test(result.error || '')) {
     return {
       status: 'not_built',
       note: `The ${name} SQLite catalog was not built on this host. The plan generator does not need it.`
