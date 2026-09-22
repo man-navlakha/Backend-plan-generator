@@ -25,5 +25,29 @@ src/data/*.db
 
 
 
+# Master product images.
+#
+# These five folders hold ~32,000 exported images, about 325 MB. Two reasons
+# they stay out of the repository:
+#
+#   1. Vercel caps a serverless bundle at 250 MB. Committing them fails the
+#      deploy -- and the app does not need them, because the catalog the plan
+#      generator reads lives in Postgres, not in these files.
+#   2. They are exported assets, not source. Git would keep every version of
+#      every one of them forever.
+#
+# The .xlsx workbooks inside these folders ARE tracked, force-added past these
+# rules. They are the source of truth the import scripts read and total ~4 MB.
+# Once a file is tracked, a gitignore rule no longer applies to it.
+#
+# Consequence to know: the btl / digital / print / tv browse pages will show
+# broken images on a fresh clone and on Vercel. The plan generator is unaffected.
+# Cinema, Radio and Transit images were committed before this rule and remain.
+src/assets/Masters/btl/
+src/assets/Masters/digital/
+src/assets/Masters/digital_pr/
+src/assets/Masters/print/
+src/assets/Masters/tv/
+
 # Generated plans
 output/
