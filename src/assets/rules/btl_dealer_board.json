@@ -1,0 +1,25 @@
+{
+  "label": "Dealer board and in-shop branding",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Above mentioned rates for Reccee, Printing, Production and Installation only. Transportation will be charged on actual once reccee complete.",
+      "Above mentioned rates are for volumetric job. MoQ - 1000 Sq. ft. Per City",
+      "GST will be charged 18% additional.",
+      "If reccee done and job will be not confirm within a month, invioce of reccee charges will be raised individual. It will be adjust once job will be execute.",
+      "Above mentioned rates don't Consider any Municipal Tax/ Local Authorities Charges. If any Municipality tax will be applied, it will be cost actual additionally.",
+      "For reporting purpose, we will submit before after installtion report for your consideration with dealer acknowledgement letter.",
+      "Producation will start once PO and Approval of design received. No Cancellation will be acceptable once producation done."
+    ],
+    "pending": [
+      "Above mentioned rates are valid till 30th Jun, 2025. — re-date before this sheet goes out."
+    ]
+  },
+  "key": "btl_dealer_board"
+}

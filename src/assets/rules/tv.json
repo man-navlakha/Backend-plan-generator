@@ -1,0 +1,17 @@
+{
+  "label": "Television advertising",
+  "extends": "global",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [],
+    "pending": [
+      "No T&C block was supplied with the television plan format. The desk must confirm the television terms before a TV plan reaches a client."
+    ]
+  },
+  "key": "tv"
+}

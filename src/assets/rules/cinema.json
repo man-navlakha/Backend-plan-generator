@@ -1,0 +1,33 @@
+{
+  "label": "Cinema advertising",
+  "extends": "global",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Minimum 7 working days required for the registration of the censor certificate.",
+      "Minimum 2 working days required for processing of the commercial.",
+      "For Satellite screens, minimum four working days required for processing of the commercial.",
+      "Production and courier will be charged extra.",
+      "GST applicable on the production & screening rental.",
+      "No. of Shows during Blockbuster will be played 3 times in a day & 4 times during Regular movies.",
+      "Need atleast 1 week prior details / information regarding the activity.",
+      "100 % Payment Advance Before Screening.",
+      "Payment in favour of \"Excellent Global Endeavors LLP\".",
+      "50% Premium will be added on above rates in case of Blockbuster movies and 100% in case of Mega Blockbuster movies. Contact Team Excellent to get a list of Blockbuster & Mega Blockbuster Movies.",
+      "Slides & Ad Films will not be screened during Premier Shows.",
+      "Advertisement Slots are subject to availibility at the time of written confirmation.",
+      "Censor Certificate: The ad films should have a Censor Certificate attached to it as follows: \"U\" - All Type of Movie, \"U/A\" - only in \"U/A\" or \"A\" Movie, \"A\" - Only in \"A\" Movie.",
+      "If ANIMAL is used in the ad campaign, then for the campaign to run, would additionally need a certificate from Animal Welfare Board.",
+      "Any alternations would be done by cinema management without prior notice.",
+      "Non-screening issues must be brought to Excellent Publicity’s notice within 2 days. Non-screening issues would be validated and necessary actions would be taken.",
+      "Non-screening complaints will not be entertained on the completion of the actual campaign."
+    ],
+    "pending": []
+  },
+  "key": "cinema"
+}

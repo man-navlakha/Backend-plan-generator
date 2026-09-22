@@ -23,5 +23,7 @@ Thumbs.db
 # Generated catalog (rebuild with npm run db:import)
 src/data/*.db
 
+src/assets/masters/
+
 # Generated plans
 output/

@@ -8,74 +8,74 @@
   "terms_key": "transit_bus",
   "rules_key": "transit_bus",
   "unit_noun": "Bus",
-  "source": "client sheet supplied by the EP desk",
+  "source": "client sheet supplied by the EP desk: Bus Branding.xlsx :: Quotation",
   "template": "Bus.xlsx",
   "columns": [
     {
       "header": "Sr.No.",
       "field": "sr",
       "type": "sr",
-      "width": 8
+      "width": 14
     },
     {
       "header": "State",
       "field": "state",
       "type": "text",
-      "width": 14.5
+      "width": 14
     },
     {
       "header": "City",
       "field": "market",
       "type": "text",
-      "width": 12.1
+      "width": 14
     },
     {
       "header": "Units",
       "field": "qty",
       "type": "int",
-      "width": 10
+      "width": 14
     },
     {
       "header": "Type",
       "field": "price_option",
       "type": "text",
-      "width": 58.2
+      "width": 14
     },
     {
       "header": "Display Charges Per Bus",
       "field": "rate",
       "type": "money",
-      "width": 21.4
+      "width": 24.8
     },
     {
       "header": "Printing & Installation Charges",
       "field": "addon_per_unit",
       "type": "money",
-      "width": 21.0
+      "width": 32
     },
     {
       "header": "Charges Per Bus Per Month",
       "field": "rate_all_in",
       "type": "money",
-      "width": 18.1
+      "width": 30.1
     },
     {
       "header": "Charges as per Units (For 1 Month)",
       "field": "net",
       "type": "money",
-      "width": 19.0
+      "width": 23.7
     },
     {
       "header": "GST @ 18%",
       "field": "gst",
       "type": "money",
-      "width": 13.5
+      "width": 13.3
     },
     {
       "header": "Total Charges",
       "field": "total",
       "type": "money",
-      "width": 18.7
+      "width": 17.4
     }
   ]
 }

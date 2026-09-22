@@ -1,0 +1,45 @@
+{
+  "slug": "wall_painting",
+  "family": "btl",
+  "media_type": "Wall Painting",
+  "label": "Wall Painting",
+  "sheet_name": "Wall Painting",
+  "title": "Quotation for Wall Painting - Offline Advertising",
+  "terms_key": "btl_wall_painting",
+  "rules_key": "btl_wall_painting",
+  "unit_noun": "Wall",
+  "source": "client sheet supplied by the EP desk: Wall Painting.xlsx :: Quotation",
+  "template": "Wall Painting.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 13
+    },
+    {
+      "header": "Element",
+      "field": "element",
+      "type": "text",
+      "width": 30
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 17.3
+    },
+    {
+      "header": "Rate per sq. ft.",
+      "field": "rate",
+      "type": "money2",
+      "width": 17.7
+    },
+    {
+      "header": "Remark",
+      "field": "remark",
+      "type": "text",
+      "width": 35.7
+    }
+  ]
+}

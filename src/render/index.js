@@ -393,4 +393,14 @@ async function writePlanWorkbook(plan, outPath) {
   return outPath;
 }
 
-module.exports = { buildPlanWorkbook, writePlanWorkbook, loadSpec };
+/**
+ * The same workbook as bytes. This is what goes to Appwrite and what an HTTP
+ * response streams — on Vercel the filesystem is read-only, so a plan must
+ * never need a file on the way out.
+ */
+async function planWorkbookBuffer(plan) {
+  const workbook = await buildPlanWorkbook(plan);
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+module.exports = { buildPlanWorkbook, writePlanWorkbook, planWorkbookBuffer, loadSpec };

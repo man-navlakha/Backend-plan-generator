@@ -1,0 +1,81 @@
+{
+  "slug": "magazine",
+  "family": "print",
+  "media_type": "Magazine",
+  "label": "Magazine",
+  "sheet_name": "Magazine",
+  "title": "Proposal for Magazine Advertising",
+  "terms_key": "print_magazine",
+  "rules_key": "print_magazine",
+  "unit_noun": "Insertion",
+  "source": "client sheet supplied by the EP desk: Magazine New Proposal.xlsx :: Magazine",
+  "template": "Magazine.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Publication",
+      "field": "publication",
+      "type": "text",
+      "width": 11.7
+    },
+    {
+      "header": "Edition",
+      "field": "edition",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Approx. Circulation",
+      "field": "circulation",
+      "type": "int",
+      "width": 26.4
+    },
+    {
+      "header": "Readership",
+      "field": "readership",
+      "type": "text",
+      "width": 13.6
+    },
+    {
+      "header": "Frequency",
+      "field": "frequency",
+      "type": "text",
+      "width": 13.9
+    },
+    {
+      "header": "Size of the Advt.",
+      "field": "ad_size",
+      "type": "text",
+      "width": 17.3
+    },
+    {
+      "header": "Page Position",
+      "field": "page_position",
+      "type": "text",
+      "width": 16
+    },
+    {
+      "header": "Rate Per Insertion",
+      "field": "rate",
+      "type": "money",
+      "width": 20.3
+    },
+    {
+      "header": "GST @5%",
+      "field": "gst",
+      "type": "money",
+      "width": 13.9
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15.2
+    }
+  ]
+}

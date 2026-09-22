@@ -1,0 +1,95 @@
+{
+  "slug": "meta_ads",
+  "family": "digital",
+  "media_type": "Meta Ads",
+  "label": "Meta Ads",
+  "sheet_name": "Meta Ads",
+  "title": "PLAN FOR DIGITAL ADVERTISING",
+  "terms_key": "digital_meta",
+  "rules_key": "digital_meta",
+  "unit_noun": "Campaign",
+  "source": "client sheet supplied by the EP desk: Digital plan.xlsx :: Meta Ads",
+  "template": "../Digital Plan.xlsx",
+  "template_sheet": "Meta Ads",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14.9
+    },
+    {
+      "header": "Platform",
+      "field": "platform",
+      "type": "text",
+      "width": 23
+    },
+    {
+      "header": "Objective",
+      "field": "objective",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Estimated Impressions",
+      "field": "impressions",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Estd. Reach",
+      "field": "reach",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Audience Size",
+      "field": "audience_size",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Estd. Frequency",
+      "field": "frequency",
+      "type": "text",
+      "width": 14.9,
+      "note": "Source sheet heads this column \"Estd. Frequecy\"."
+    },
+    {
+      "header": "Targeting",
+      "field": "targeting",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Campaign Period",
+      "field": "campaign_period",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Ad Type",
+      "field": "ad_type",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Total Rate",
+      "field": "net",
+      "type": "money",
+      "width": 14.9
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14.9
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 14.9
+    }
+  ]
+}

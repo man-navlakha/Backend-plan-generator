@@ -1,0 +1,25 @@
+{
+  "label": "Wall painting",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Painter will share photos after completing wall paint. No reccee will be arranged for the same.",
+      "If there is any chargeable wall, painter will ask to concern company person for approval. If it is approved, rental of wall will be charged extra.",
+      "Above rates are tentative rates. Once we received design and area list with sq. ft., we will submit final quotation.",
+      "The media is not traceable and we couldn't assure you for existance. We will submit photos only once we complete the job.",
+      "If there is any cap of size or design or wall please mention before initiating.",
+      "GST will be charged 18% additional.",
+      "Payment terms : 50 % Advance with PO + 25% at the mid of work + 25% at the time of completion. Production will start once we get PO and advance. No cancellation will be accepted once production start."
+    ],
+    "pending": [
+      "Above mentioned rates are valid till 1st Mar 2026. — re-date before this sheet goes out."
+    ]
+  },
+  "key": "btl_wall_painting"
+}

@@ -1,0 +1,28 @@
+{
+  "label": "Mobile van branding",
+  "extends": "transit",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "30 Days are working days. Payment Terms : 100% Advance.",
+      "Van will move out 50 Kms per day. Extra km will be charged additionally at 12/- per km.",
+      "Mentioned rates is for Per Van for single zone. Any area which comes in extra zone will cost as per actual.",
+      "If the cities are Tier 2 & 3 the rates will change.",
+      "All POP materials such as Samples, leaflet, Audio clip, etc. will be provided by client side.",
+      "If by any mechanical or instrumental fault working will stop for whole day, we will recover that day at last.",
+      "If van will cross the toll tax or state border, toll tax or border tax will be charged on actual.",
+      "Production will be start once we received PO, Creative and all the samples.",
+      "Rates mentioned are valid for 20 days.",
+      "As this is labour oriented work, lead time may get varied than actual decided.",
+      "Lead Time will be 5-6 Days after the submission of Creative.",
+      "GPS-tagged photos will be submitted five times daily as part of the reporting process."
+    ],
+    "pending": []
+  },
+  "key": "transit_mobile_van"
+}

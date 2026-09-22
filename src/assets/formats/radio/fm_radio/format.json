@@ -7,112 +7,105 @@
   "title": "PROPOSAL FOR RADIO ADVERTISING",
   "terms_key": "radio",
   "rules_key": "radio",
-  "unit_noun": "Second",
-  "source": "the layout the EP media team already sends for radio. Radio is billed on seconds: spot length x spots a day x days x rate per second, floored at the station minimum billing",
+  "unit_noun": "Spot",
+  "source": "client sheet supplied by the EP desk: Radio New Plan.xlsx :: Plan",
   "template": "Radio.xlsx",
   "columns": [
     {
       "header": "Sr. No.",
       "field": "sr",
       "type": "sr",
-      "width": 8
+      "width": 19.2
     },
     {
-      "header": "Time Band ( RODP )",
+      "header": "Time Band (RODP)",
       "field": "band_label",
       "type": "text",
-      "width": 24
+      "width": 19.2
     },
     {
       "header": "Radio Station",
       "field": "display_name",
       "type": "text",
-      "width": 24
+      "width": 30.9
     },
     {
       "header": "Frequency",
       "field": "frequency",
       "type": "text",
-      "width": 11
+      "width": 19.2
     },
     {
       "header": "City",
       "field": "city",
       "type": "text",
-      "width": 14
+      "width": 19.8
     },
     {
       "header": "State",
       "field": "state",
       "type": "text",
-      "width": 13
-    },
-    {
-      "header": "Language",
-      "field": "languages",
-      "type": "text",
-      "width": 18
+      "width": 11
     },
     {
       "header": "Listenership (per week)",
       "field": "listenership",
       "type": "text",
-      "width": 17
+      "width": 23.8
     },
     {
       "header": "Rank",
       "field": "rank",
       "type": "int",
-      "width": 8,
-      "note": "held back on the client sheet when the master ranking is thin"
+      "width": 19.2
     },
     {
       "header": "Spot Duration (Seconds)",
       "field": "spot_seconds",
       "type": "int",
-      "width": 12
+      "width": 26.8
     },
     {
       "header": "Spot Repetition (Daily)",
       "field": "spots_per_day",
       "type": "int",
-      "width": 13
+      "width": 25.1
     },
     {
       "header": "Campaign Duration (Days)",
       "field": "days",
       "type": "int",
-      "width": 13
+      "width": 26.2
     },
     {
       "header": "Total Seconds",
       "field": "total_seconds",
       "type": "int",
-      "width": 12
+      "width": 19.2
     },
     {
       "header": "Rate per Second",
       "field": "rate",
       "type": "money2",
-      "width": 13
+      "width": 19.2
     },
     {
       "header": "Cost",
       "field": "cost",
       "type": "money",
-      "width": 14
+      "width": 19.2
     },
     {
       "header": "GST @ 18%",
       "field": "gst",
       "type": "money",
-      "width": 13
+      "width": 14.4
     },
     {
       "header": "Total Cost",
       "field": "total",
       "type": "money",
-      "width": 15
+      "width": 13.2
     }
   ]
 }

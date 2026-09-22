@@ -1,0 +1,25 @@
+{
+  "label": "Digital screens in residential societies",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - 100% advance",
+      "Post completion of the execution, we will be sharing with you Execution reference photographs between 2 to 3 Working days.",
+      "We are not Liable to submit anything other than Photographs.",
+      "Screen Inventories are subject to change and availability. Every Month, New Screens are getting added to the list. The selection is to be considered at the time of finalizing. Please Select extra 15-20 Screens for any kind of changes.",
+      "Approximately, 10-15% of the total screen inventory may experience maintenance/ Technical issues during the Campaign due to the digital nature of the media.",
+      "Any disruptions or downtime will be compensated for by providing additional surplus frequency OR by Extending one day to ensure your campaign's effectiveness.",
+      "Only samples pictures from 1-2 apartments will be submitted in 2-3 working days Instead of full Photography. We provide Start date & end date photography in a 30 days campaign.",
+      "You will be Provided the Campaign Monitoring (Cloud Based Log Report) after the campaign is over.",
+      "It does not include any on ground society activities or Whatsapp Messages."
+    ],
+    "pending": []
+  },
+  "key": "btl_society_screens"
+}

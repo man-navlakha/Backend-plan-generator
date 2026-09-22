@@ -1,0 +1,25 @@
+{
+  "label": "PR coverage",
+  "extends": "digital",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms: 100% Advance.",
+      "GST at the rate of 18% will be extra.",
+      "The charges of article writing and translation will be extra.",
+      "Acceptance of Brand Article and Placement will be completely up to the publication house.",
+      "No Report is shared for Articles without Page Views.",
+      "Timeline: 7 to 10 working days. It might take longer if goes for editorial checking or editing.",
+      "The client should remain open for any content edits or image changes.",
+      "The rates are applicable for this financial year only.",
+      "The drafts are not shared by the publication before publishing."
+    ],
+    "pending": []
+  },
+  "key": "pr"
+}

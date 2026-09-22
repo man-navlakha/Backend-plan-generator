@@ -1,0 +1,46 @@
+{
+  "slug": "digital_pr",
+  "family": "digital",
+  "media_type": "Digital PR",
+  "label": "Digital PR",
+  "sheet_name": "Digital PR",
+  "title": "Plan for - Digital PR",
+  "terms_key": "digital_pr",
+  "rules_key": "digital_pr",
+  "unit_noun": "Article",
+  "source": "client sheet supplied by the EP desk: Digital PR.xlsx :: Plan for Digital PR",
+  "template": "../Digital PR.xlsx",
+  "template_sheet": "Plan for Digital PR",
+  "columns": [
+    {
+      "header": "Sr. No",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Publication",
+      "field": "publication",
+      "type": "text",
+      "width": 36.2
+    },
+    {
+      "header": "Website",
+      "field": "website",
+      "type": "text",
+      "width": 35
+    },
+    {
+      "header": "Backlink (On approval)",
+      "field": "backlink",
+      "type": "int",
+      "width": 31.2
+    },
+    {
+      "header": "Commercials",
+      "field": "net",
+      "type": "money",
+      "width": 16.8
+    }
+  ]
+}

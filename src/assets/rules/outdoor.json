@@ -1,0 +1,22 @@
+{
+  "label": "Outdoor hoardings and OOH sites",
+  "extends": "global",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "The above rates are only the rental rates with printing and mounting. If the design gets changed, Printing & Mounting charges will be extra.",
+      "No cancellation would be accepted during the tenure of the contract.",
+      "All sites are subject to availability at the time of written confirmation.",
+      "GST @18% Applicable on the total Cost.",
+      "In case flex is damaged or design is changed, the printing & mounting will be borne by your company.",
+      "In case of political requirements, if the display is taken off, the same number of days will be compensated by way of extended display."
+    ],
+    "pending": []
+  },
+  "key": "outdoor"
+}

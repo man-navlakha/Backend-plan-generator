@@ -1,0 +1,69 @@
+{
+  "slug": "leaflet_insertion",
+  "family": "btl",
+  "media_type": "Leaflet Insertion",
+  "label": "Leaflet Insertion",
+  "sheet_name": "Leaflet Insertion",
+  "title": "Plan for Leaflet printing & Insertion",
+  "terms_key": "btl",
+  "rules_key": "btl",
+  "unit_noun": "Leaflet",
+  "source": "client sheet supplied by the EP desk: Leaflet Insertion - newspaper.xlsx :: Quotation",
+  "template": "Leaflet Insertion.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8.9
+    },
+    {
+      "header": "Elements",
+      "field": "element",
+      "type": "text",
+      "width": 17.4
+    },
+    {
+      "header": "Specification",
+      "field": "specification",
+      "type": "text",
+      "width": 34.9
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 14.7
+    },
+    {
+      "header": "MOQ",
+      "field": "moq",
+      "type": "int",
+      "width": 8.9
+    },
+    {
+      "header": "Rate per piece",
+      "field": "rate",
+      "type": "money2",
+      "width": 14.6
+    },
+    {
+      "header": "Amount",
+      "field": "net",
+      "type": "money",
+      "width": 8.9
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 12.6
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 11.7
+    }
+  ]
+}

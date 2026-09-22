@@ -1,0 +1,22 @@
+{
+  "label": "Print family defaults",
+  "extends": "global",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms : 100% Advance.",
+      "Page Position will be subject to space availability.",
+      "Taxes will be extra as per actual.",
+      "Confirmation and creative should be sent prior to the Deadlines.",
+      "We require the creative in High resolution PDF.",
+      "Cancellation will be charged as per the optimus policy."
+    ],
+    "pending": []
+  },
+  "key": "print"
+}

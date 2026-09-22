@@ -1,0 +1,94 @@
+{
+  "slug": "youtube",
+  "family": "digital",
+  "media_type": "YouTube",
+  "label": "YouTube",
+  "sheet_name": "YouTube",
+  "title": "Plan for Youtube",
+  "terms_key": "digital",
+  "rules_key": "digital",
+  "unit_noun": "Campaign",
+  "source": "client sheet supplied by the EP desk: Digital plan.xlsx :: Plan for YouTube",
+  "template": "../Digital Plan.xlsx",
+  "template_sheet": "Plan for YouTube",
+  "columns": [
+    {
+      "header": "Plan",
+      "field": "plan_label",
+      "type": "text",
+      "width": 20.7
+    },
+    {
+      "header": "Platform",
+      "field": "platform",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Pricing Model",
+      "field": "pricing_model",
+      "type": "text",
+      "width": 14.9
+    },
+    {
+      "header": "Ad Specs",
+      "field": "ad_specs",
+      "type": "text",
+      "width": 31.6
+    },
+    {
+      "header": "Duration",
+      "field": "duration",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Impressions",
+      "field": "impressions",
+      "type": "int",
+      "width": 13.6
+    },
+    {
+      "header": "Tentative Reach",
+      "field": "reach",
+      "type": "int",
+      "width": 14.6
+    },
+    {
+      "header": "Tentative Clicks",
+      "field": "clicks",
+      "type": "int",
+      "width": 15.7
+    },
+    {
+      "header": "Average Freq Cap",
+      "field": "freq_cap",
+      "type": "text",
+      "width": 16.7
+    },
+    {
+      "header": "CPM",
+      "field": "cpm",
+      "type": "money2",
+      "width": 14
+    },
+    {
+      "header": "Spends",
+      "field": "net",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 13.2
+    },
+    {
+      "header": "Total Spends",
+      "field": "total",
+      "type": "money",
+      "width": 13.1
+    }
+  ]
+}

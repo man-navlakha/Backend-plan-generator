@@ -1,0 +1,111 @@
+{
+  "slug": "television",
+  "family": "tv",
+  "media_type": "Television",
+  "label": "Television",
+  "sheet_name": "Television",
+  "title": "PROPOSAL FOR TELEVISION ADVERTISING",
+  "terms_key": "tv",
+  "rules_key": "tv",
+  "unit_noun": "Spot",
+  "source": "client sheet supplied by the EP desk: Television Plan.xlsx :: Quotation",
+  "template": "Television.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Time Band (RODP)",
+      "field": "band_label",
+      "type": "text",
+      "width": 17.3
+    },
+    {
+      "header": "Days",
+      "field": "days_label",
+      "type": "text",
+      "width": 13.8
+    },
+    {
+      "header": "Channel",
+      "field": "channel",
+      "type": "text",
+      "width": 18.1
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Language",
+      "field": "language",
+      "type": "text",
+      "width": 12.9
+    },
+    {
+      "header": "Genre",
+      "field": "genre",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Spot Duration (Seconds)",
+      "field": "spot_seconds",
+      "type": "int",
+      "width": 18.2
+    },
+    {
+      "header": "Spot Repetition (Daily)",
+      "field": "spots_per_day",
+      "type": "int",
+      "width": 30.3
+    },
+    {
+      "header": "Campaign Duration (Days)",
+      "field": "days",
+      "type": "int",
+      "width": 21.8
+    },
+    {
+      "header": "Total Spots",
+      "field": "total_spots",
+      "type": "int",
+      "width": 14
+    },
+    {
+      "header": "Total Seconds",
+      "field": "total_seconds",
+      "type": "int",
+      "width": 14
+    },
+    {
+      "header": "Rate Per 10 Sec",
+      "field": "rate",
+      "type": "money",
+      "width": 14.7
+    },
+    {
+      "header": "Cost",
+      "field": "cost",
+      "type": "money",
+      "width": 24.1
+    },
+    {
+      "header": "GST",
+      "field": "gst",
+      "type": "money",
+      "width": 15.7
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 25
+    }
+  ]
+}

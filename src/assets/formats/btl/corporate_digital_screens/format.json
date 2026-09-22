@@ -1,0 +1,99 @@
+{
+  "slug": "corporate_digital_screens",
+  "family": "btl",
+  "media_type": "Corporate Digital Screens",
+  "label": "Corporate Screens",
+  "sheet_name": "Corporate Screens",
+  "title": "Plan for - Corporate Digital Screens",
+  "terms_key": "btl",
+  "rules_key": "btl",
+  "unit_noun": "Screen",
+  "source": "client sheet supplied by the EP desk: Corporate Digital Screens.xlsx :: Quotation",
+  "template": "Corporate Digital Screens.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 9
+    },
+    {
+      "header": "Type of Media",
+      "field": "media_type",
+      "type": "text",
+      "width": 18.1
+    },
+    {
+      "header": "Screen Size",
+      "field": "screen_size",
+      "type": "text",
+      "width": 13.7
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 14.2
+    },
+    {
+      "header": "Total Corporate",
+      "field": "total_corporate",
+      "type": "int",
+      "width": 19.4
+    },
+    {
+      "header": "Total Screens",
+      "field": "total_screens",
+      "type": "int",
+      "width": 15.9
+    },
+    {
+      "header": "Duration",
+      "field": "duration",
+      "type": "text",
+      "width": 13
+    },
+    {
+      "header": "Slot and Loop",
+      "field": "slot_and_loop",
+      "type": "text",
+      "width": 21.3
+    },
+    {
+      "header": "SLOTS PER DAY",
+      "field": "slots_per_day",
+      "type": "int",
+      "width": 18.2
+    },
+    {
+      "header": "MOQ Screens",
+      "field": "moq",
+      "type": "int",
+      "width": 16.7
+    },
+    {
+      "header": "Rate per screen",
+      "field": "rate",
+      "type": "money",
+      "width": 19
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 9.3
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 9
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 9.6
+    }
+  ]
+}

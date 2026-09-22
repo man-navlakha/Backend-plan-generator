@@ -1,0 +1,21 @@
+{
+  "label": "Tricycle branding",
+  "extends": "transit",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - 100% Advance",
+      "The timings will be 6 hours in a day and the same can be as per your requirements.",
+      "Corporation Permissions of one zone is included in the above Cost, if any extra zone required permission cost will be charged additionally.",
+      "In case of any break down, the equal number of hours will be extended.",
+      "Tricycle will be kept on the routes of your choice on a daily basis."
+    ],
+    "pending": []
+  },
+  "key": "transit_tricycle"
+}

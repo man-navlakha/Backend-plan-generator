@@ -7,19 +7,37 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "vercel-build": "DB_READONLY=0 node scripts/import-transit-master.js && DB_READONLY=0 node scripts/import-radio-master.js",
+    "vercel-build": "echo \"No build step: the catalog lives in Postgres.\"",
     "db:import": "node scripts/import-transit-master.js",
     "db:audit": "node scripts/audit-transit.js",
     "db:import:radio": "node scripts/import-radio-master.js",
+    "db:import:cinema": "node scripts/import-cinema-master.js",
+    "db:import:others": "node scripts/import-other-masters.js",
+    "db:import:all": "node scripts/import-transit-master.js && node scripts/import-radio-master.js && node scripts/import-cinema-master.js && node scripts/import-other-masters.js",
+    "db:smoke:masters": "node scripts/smoke-masters.js",
+    "db:smoke:dedicated": "node scripts/smoke-dedicated-masters.js",
     "rules:validate": "node -e \"console.log(JSON.stringify(require('./src/rules').validateAllRules(),null,2))\"",
-    "plan:demo": "node scripts/render-demo-plan.js"
+    "plan:demo": "node scripts/render-demo-plan.js",
+    "plan:upload": "node scripts/render-demo-plan.js --upload",
+    "plan:push": "node scripts/upload-plan.js",
+    "db:setup": "node --env-file=.env scripts/db-setup.js",
+    "db:migrate": "node --env-file=.env scripts/migrate-to-postgres.js",
+    "db:migrate:dry": "node --env-file=.env scripts/migrate-to-postgres.js --dry",
+    "db:smoke:pg": "node --env-file=.env scripts/smoke-postgres.js",
+    "catalog:try": "node --env-file=.env scripts/try-prefetch.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
     "exceljs": "^4.4.0",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "node-appwrite": "^29.0.0",
+    "openai": "^7.21.0",
+    "pg": "^8.23.0"
   },
   "overrides": {
     "uuid": "^11.1.1"
+  },
+  "engines": {
+    "node": ">=20.x"
   }
 }

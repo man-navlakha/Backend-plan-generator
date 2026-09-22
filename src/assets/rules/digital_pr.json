@@ -1,0 +1,28 @@
+{
+  "label": "Digital PR placements",
+  "extends": "digital",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms: 100% Advance.",
+      "GST at the rate of 18% will be extra.",
+      "Do Follow links are not commited. There may be circumstances where the publication house gives No Follow link in place of Do Follow link.",
+      "The charges of article writing will be extra.",
+      "Acceptance of Brand Article and placement of the article will be completely up to the publication house.",
+      "No Report is shared for Articles without Page Views.",
+      "Timeline: 7 to 8 working days. It might take longer if goes for editorial checking or editing.",
+      "The mentioned rates are for non branded content. The commercials varies for branded content.",
+      "Publication house are bound to put discalimer in any paid articles.",
+      "The client should remain open for any content edits or image changes.",
+      "We do not guarantee the continued availability of live links to external content.",
+      "The rates remain applicable for this financial year only."
+    ],
+    "pending": []
+  },
+  "key": "digital_pr"
+}

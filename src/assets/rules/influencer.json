@@ -1,0 +1,24 @@
+{
+  "label": "Influencer marketing",
+  "extends": "digital",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "No cancellation would be accepted during the tenure of the contract.",
+      "GST 18% would be added on the proposal.",
+      "Validity of the video would be for 3 months.",
+      "The Availability of Influencer or celebrity is subject to the time of confirmation.",
+      "Promotional Hamper will be provided by the client.",
+      "The rates are valid for 15 days.",
+      "It takes 7 working days for influencers to share the final deliverables post the approval of the script.",
+      "It takes 7 working days for the influencers to share the final deliverables post the products are received."
+    ],
+    "pending": []
+  },
+  "key": "influencer"
+}

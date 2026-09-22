@@ -1,0 +1,24 @@
+{
+  "label": "Traffic barricade branding",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Above mentioned rates are based on specification and quantity which are mentioned here. If there are any changes, the rates can change accordingly.",
+      "Payment terms: 100% Advance will be required to start the production.",
+      "Delivery timeline will given after confirming the area list and quantity of barricade.",
+      "We are not liable to submit anything other than Photographs.",
+      "We will submit the barricade to police station. Police will decide were to put the barricades.",
+      "If any municipal permission or police permission require then it will be charge extra or client will get the permission."
+    ],
+    "pending": [
+      "Rates are valid till 15th July, 2025. The rates are subject to change after 15th July, 2025. — re-date before this sheet goes out."
+    ]
+  },
+  "key": "btl_traffic_barricade"
+}

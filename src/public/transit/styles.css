@@ -25,6 +25,10 @@ button, select { cursor: pointer; }
 .brand b, .brand small { display: block; }
 .brand b { font: 800 19px/1 var(--display); text-transform: uppercase; letter-spacing: .05em; }
 .brand small { margin-top: 5px; color: var(--muted); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
+.master-nav { display: flex; gap: 4px; margin-left: auto; margin-right: 28px; }
+.master-nav a { padding: 8px 10px; color: var(--muted); border: 1px solid transparent; text-decoration: none; font: 800 9px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; }
+.master-nav a:hover { border-color: var(--ink); }
+.master-nav a.active { color: var(--paper); background: var(--ink); }
 .sync-state { display: flex; gap: 9px; align-items: center; font-size: 11px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
 .sync-state i { width: 9px; height: 9px; background: var(--track); border: 2px solid var(--ink); border-radius: 50%; box-shadow: 0 0 0 4px rgba(185, 213, 50, .25); animation: pulse 2.2s infinite; }
 
@@ -235,6 +239,8 @@ footer { padding: 24px clamp(20px, 5vw, 76px); display: flex; justify-content: s
 @media (max-width: 650px) {
   .masthead { min-height: 70px; }
   .sync-state span { display: none; }
+  .master-nav { margin-right: 8px; }
+  .master-nav a { padding: 7px 5px; }
   .hero { min-height: 340px; padding-top: 58px; }
   h1 { font-size: clamp(58px, 20vw, 92px); }
   .hero-copy { padding-left: 18px; }

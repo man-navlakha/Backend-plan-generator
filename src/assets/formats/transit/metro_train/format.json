@@ -8,7 +8,7 @@
   "terms_key": "transit_metro",
   "rules_key": "transit_metro",
   "unit_noun": "Train",
-  "source": "client sheet supplied by the EP desk, the Imprexive Marketing proposal. Priced per train per month, with printing and mounting quoted separately from the display cost",
+  "source": "client sheet supplied by the EP desk: Metro Plan.xlsx :: Quotation",
   "template": "Metro.xlsx",
   "columns": [
     {
@@ -21,40 +21,37 @@
       "header": "City",
       "field": "market",
       "type": "text",
-      "width": 9.6
+      "width": 8.9
     },
     {
       "header": "Line",
       "field": "metro_line",
       "type": "text",
-      "width": 22.1,
-      "note": "read off the price option where the master names a line, Aqua Line or Line 3&4, otherwise the desk fills it"
+      "width": 8.9
     },
     {
       "header": "Route",
       "field": "route",
       "type": "text",
-      "width": 29.4,
-      "note": "not on the master, the desk fills it, Tripunithura to Aluva"
+      "width": 8.9
     },
     {
       "header": "Media Package",
       "field": "package",
       "type": "text",
-      "width": 35.1,
-      "note": "the price option with the city and line stripped off, Exterior Wrap or Interior Panels"
+      "width": 15.1
     },
     {
       "header": "Train Units",
       "field": "qty",
       "type": "int",
-      "width": 13.1
+      "width": 11
     },
     {
-      "header": "Display Cost - 1 Month",
+      "header": "Display Cost - 30 Days",
       "field": "rate",
       "type": "money",
-      "width": 19.0
+      "width": 19
     },
     {
       "header": "Printing & Mounting",
@@ -72,13 +69,19 @@
       "header": "GST 18%",
       "field": "gst",
       "type": "money",
-      "width": 9.3
+      "width": 8.9
     },
     {
       "header": "Final cost with GST",
       "field": "total",
       "type": "money",
       "width": 14.9
+    },
+    {
+      "header": "Travellers Per day",
+      "field": "travellers_per_day",
+      "type": "int",
+      "width": 19.8
     }
   ]
 }

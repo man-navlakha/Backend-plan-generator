@@ -8,70 +8,69 @@
   "terms_key": "transit_cab",
   "rules_key": "transit_cab",
   "unit_noun": "Cab",
-  "source": "client sheet supplied by the EP desk, the Imprexive Marketing proposal. Cab is quoted all in: the offer rate already carries printing and mounting, so there is no separate column for it",
+  "source": "client sheet supplied by the EP desk: Cab Branding.xlsx :: Quotation",
   "template": "Cab.xlsx",
   "columns": [
     {
       "header": "Sr. No.",
       "field": "sr",
       "type": "sr",
-      "width": 8.9
+      "width": 8.6
     },
     {
-      "header": "State",
-      "field": "state",
+      "header": "Tier",
+      "field": "tier",
       "type": "text",
-      "width": 13.1
+      "width": 8.6,
+      "note": "Source sheet heads this column \"Teir\"."
     },
     {
       "header": "City",
       "field": "market",
       "type": "text",
-      "width": 17.6
+      "width": 8.6
     },
     {
       "header": "No. of cabs",
       "field": "qty",
       "type": "int",
-      "width": 12.4
+      "width": 12.8
     },
     {
       "header": "Media Package",
-      "field": "price_option",
+      "field": "package",
       "type": "text",
-      "width": 20.4
+      "width": 15
     },
     {
       "header": "Offer Rate (Including Printing & Mounting) for per Cab for 1 month",
       "field": "rate_all_in",
       "type": "money",
-      "width": 34.0,
-      "note": "the display rate plus printing and mounting, per cab per month"
+      "width": 23.1
     },
     {
-      "header": "Duration in Months",
+      "header": "Minimum Duration in Month",
       "field": "months",
       "type": "int",
-      "width": 18.4
+      "width": 16.5
     },
     {
-      "header": "Cost for 1 Month",
+      "header": "Cost For 1 Month",
       "field": "net",
       "type": "money",
-      "width": 12.4,
-      "note": "cab is quoted a month at a time, so on a one month plan this is the line net and the sheet adds up as the client reads it"
+      "width": 17.1
     },
     {
       "header": "GST @18 %",
       "field": "gst",
       "type": "money",
-      "width": 11.4
+      "width": 14.4
     },
     {
       "header": "Total Cost",
       "field": "total",
       "type": "money",
-      "width": 9.3
+      "width": 15.9
     }
   ]
 }

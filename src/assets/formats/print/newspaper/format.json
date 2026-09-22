@@ -1,0 +1,87 @@
+{
+  "slug": "newspaper",
+  "family": "print",
+  "media_type": "Newspaper",
+  "label": "Newspaper",
+  "sheet_name": "Newspaper",
+  "title": "Proposal for Newspaper Advertising",
+  "terms_key": "print_newspaper",
+  "rules_key": "print_newspaper",
+  "unit_noun": "Insertion",
+  "source": "client sheet supplied by the EP desk: Newspaper new plan.xlsx :: Quotation",
+  "template": "Newspaper.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8.9
+    },
+    {
+      "header": "Publication",
+      "field": "publication",
+      "type": "text",
+      "width": 21.4
+    },
+    {
+      "header": "Edition",
+      "field": "edition",
+      "type": "text",
+      "width": 56.6
+    },
+    {
+      "header": "Approx. Circulations",
+      "field": "circulation",
+      "type": "int",
+      "width": 17.3
+    },
+    {
+      "header": "Size of the Advt.(HxW)",
+      "field": "ad_size",
+      "type": "text",
+      "width": 8.9
+    },
+    {
+      "header": "Page Position",
+      "field": "page_position",
+      "type": "text",
+      "width": 17.5
+    },
+    {
+      "header": "Rate Per Insertion",
+      "field": "rate",
+      "type": "money",
+      "width": 18.9
+    },
+    {
+      "header": "Offer Rate Per Insertion",
+      "field": "offer_rate",
+      "type": "money",
+      "width": 28
+    },
+    {
+      "header": "GST @ 5%",
+      "field": "gst",
+      "type": "money",
+      "width": 8.9
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 8.9
+    },
+    {
+      "header": "Readership",
+      "field": "readership",
+      "type": "text",
+      "width": 18.1
+    },
+    {
+      "header": "CPR",
+      "field": "cpr",
+      "type": "money2",
+      "width": 15.4
+    }
+  ]
+}

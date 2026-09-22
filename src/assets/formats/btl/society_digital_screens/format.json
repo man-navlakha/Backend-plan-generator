@@ -1,0 +1,87 @@
+{
+  "slug": "society_digital_screens",
+  "family": "btl",
+  "media_type": "Society Digital Screens",
+  "label": "Society Screens",
+  "sheet_name": "Society Screens",
+  "title": "PROPOSAL FOR DIGITAL SCREENS IN SOCIETY",
+  "terms_key": "btl_society_screens",
+  "rules_key": "btl_society_screens",
+  "unit_noun": "Screen",
+  "source": "client sheet supplied by the EP desk: Digital Screen in Society.xlsx :: Quotation",
+  "template": "Digital Screen in Society.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Media",
+      "field": "media_name",
+      "type": "text",
+      "width": 15.4
+    },
+    {
+      "header": "Size",
+      "field": "size",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "DAYS",
+      "field": "days",
+      "type": "int",
+      "width": 14
+    },
+    {
+      "header": "SLOTS PER DAY",
+      "field": "slots_per_day",
+      "type": "int",
+      "width": 25.3
+    },
+    {
+      "header": "QTY",
+      "field": "qty",
+      "type": "int",
+      "width": 14
+    },
+    {
+      "header": "MOQ",
+      "field": "moq",
+      "type": "int",
+      "width": 14
+    },
+    {
+      "header": "Rate per board",
+      "field": "rate",
+      "type": "money",
+      "width": 16.6
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 23.4
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 25.4
+    }
+  ]
+}

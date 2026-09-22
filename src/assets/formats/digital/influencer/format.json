@@ -1,0 +1,51 @@
+{
+  "slug": "influencer",
+  "family": "digital",
+  "media_type": "Influencer",
+  "label": "Influencer",
+  "sheet_name": "Influencer",
+  "title": "PLAN FOR INFLUENCERS",
+  "terms_key": "influencer",
+  "rules_key": "influencer",
+  "unit_noun": "Influencer",
+  "source": "client sheet supplied by the EP desk: Influencer Plan.xlsx :: Plan",
+  "template": "Influencer.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 6.9
+    },
+    {
+      "header": "Name",
+      "field": "name",
+      "type": "text",
+      "width": 19.2
+    },
+    {
+      "header": "Link",
+      "field": "link",
+      "type": "text",
+      "width": 42
+    },
+    {
+      "header": "Followers",
+      "field": "followers",
+      "type": "text",
+      "width": 16.1
+    },
+    {
+      "header": "Engagement Rate",
+      "field": "engagement_rate",
+      "type": "text",
+      "width": 18.7
+    },
+    {
+      "header": "Cost for Reel (Tentative)",
+      "field": "net",
+      "type": "money",
+      "width": 22.8
+    }
+  ]
+}

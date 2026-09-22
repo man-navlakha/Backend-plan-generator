@@ -1,0 +1,29 @@
+{
+  "label": "Newspaper advertising",
+  "extends": "print",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms : 100% Advance.",
+      "Page Position confirmation will be subject to space availability on the scheduled release date, at the time of closing the issue.",
+      "Publications reserve the right to carry a Multiple Jackets / Flaps on any page without prior intimation on any date.",
+      "Guaranteed jackets / Guaranteed Power Jackets / Innovations will always take precedence.",
+      "Positioning of Floating/Hybrid Jacket cannot be confirmed.",
+      "In case the creative when received qualifies for a co-branded ad then additional charges of the client rate will apply.",
+      "Competitor clients can be carried at any point of time.",
+      "Full run ads will always take precedence for the same.",
+      "Bigger/standard sizes will take precedence for the same.",
+      "Taxes will be extra as per actual.",
+      "Confirmation and creative should be sent two days prior the release date.",
+      "We require the creative in High resolution PDF.",
+      "Cancellation will be charged as per the optimus policy."
+    ],
+    "pending": []
+  },
+  "key": "print_newspaper"
+}

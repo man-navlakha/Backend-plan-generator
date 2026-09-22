@@ -1,0 +1,64 @@
+{
+  "slug": "leaflet_d2d",
+  "family": "btl",
+  "media_type": "Leaflet Door to Door",
+  "label": "Leaflet D2D",
+  "sheet_name": "Leaflet D2D",
+  "title": "PROPOSAL FOR PROMOTER ACTIVITY - D2D",
+  "terms_key": "btl_leaflet_d2d",
+  "rules_key": "btl_leaflet_d2d",
+  "unit_noun": "Leaflet",
+  "source": "client sheet supplied by the EP desk: Leaflet Door to Door.xlsx :: Quotation",
+  "template": "Leaflet Door to Door.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Elements",
+      "field": "element",
+      "type": "text",
+      "width": 27.2
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 30.3
+    },
+    {
+      "header": "Qty of leaflet",
+      "field": "qty",
+      "type": "int",
+      "width": 16.6
+    },
+    {
+      "header": "Cost per Leaflet",
+      "field": "rate",
+      "type": "money2",
+      "width": 14,
+      "note": "Source sheet heads this column \"Cost\"."
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 13.3
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 13.4
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 13.1
+    }
+  ]
+}

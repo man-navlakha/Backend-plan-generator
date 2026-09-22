@@ -1,0 +1,136 @@
+{
+  "slug": "hoarding",
+  "family": "outdoor",
+  "media_type": "Outdoor",
+  "label": "Outdoor",
+  "sheet_name": "Outdoor",
+  "title": "Plan for - Outdoor Advertising",
+  "terms_key": "outdoor",
+  "rules_key": "outdoor",
+  "unit_noun": "Site",
+  "source": "client sheet supplied by the EP desk: Outdoor Plan (1).xlsx :: Quotation",
+  "template": "Outdoor.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 15.9
+    },
+    {
+      "header": "State",
+      "field": "state",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "City",
+      "field": "market",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "Medium",
+      "field": "medium",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "Availability",
+      "field": "availability",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "W",
+      "field": "width_ft",
+      "type": "money2",
+      "width": 15.9
+    },
+    {
+      "header": "H",
+      "field": "height_ft",
+      "type": "money2",
+      "width": 15.9
+    },
+    {
+      "header": "Unit",
+      "field": "qty",
+      "type": "int",
+      "width": 15.9
+    },
+    {
+      "header": "Faces/ Sides",
+      "field": "faces",
+      "type": "int",
+      "width": 15.9
+    },
+    {
+      "header": "Sq. Ft.",
+      "field": "sqft",
+      "type": "int",
+      "width": 15.9
+    },
+    {
+      "header": "Type",
+      "field": "price_option",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "Display cost for 30 days",
+      "field": "rate",
+      "type": "money",
+      "width": 22.1
+    },
+    {
+      "header": "Campaign Duration (days)",
+      "field": "days",
+      "type": "int",
+      "width": 26.1,
+      "note": "Source sheet heads this column \"Campaign Duration ( days)\"."
+    },
+    {
+      "header": "Cost as per duration",
+      "field": "net",
+      "type": "money",
+      "width": 20.3
+    },
+    {
+      "header": "Printing cost",
+      "field": "printing_cost",
+      "type": "money",
+      "width": 15.9
+    },
+    {
+      "header": "Mounting Cost",
+      "field": "mounting_cost",
+      "type": "money",
+      "width": 15.9
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15.9
+    },
+    {
+      "header": "Lat",
+      "field": "lat",
+      "type": "text",
+      "width": 15.9
+    },
+    {
+      "header": "Long",
+      "field": "long",
+      "type": "text",
+      "width": 15.9
+    }
+  ]
+}

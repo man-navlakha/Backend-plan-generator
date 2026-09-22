@@ -187,7 +187,12 @@ function finalize() {
   if (READ_ONLY) return;
   const handle = open();
   handle.pragma('wal_checkpoint(TRUNCATE)');
-  handle.pragma('journal_mode = DELETE');
+  try {
+    handle.pragma('journal_mode = DELETE');
+  } catch (error) {
+    if (error.code !== 'SQLITE_BUSY') throw error;
+    console.warn('Transit catalog is in use; leaving SQLite in WAL mode for this local import.');
+  }
   handle.close();
 }
 

@@ -9,7 +9,8 @@
  */
 
 const path = require('path');
-const { writePlanWorkbook } = require('../src/render');
+const { writePlanWorkbook, planWorkbookBuffer } = require('../src/render');
+const { uploadPlan, isConfigured, missingConfig } = require('../src/storage/appwrite');
 
 const GST = 0.18;
 
@@ -122,20 +123,32 @@ const plan = {
   ]
 };
 
-const out = process.argv[2] || path.join(__dirname, '..', 'output', 'awadh-foods-plan.xlsx');
+const args = process.argv.slice(2);
+const upload = args.includes('--upload');
+const out = args.find((a) => !a.startsWith('--')) || path.join(__dirname, '..', 'output', 'awadh-foods-plan.xlsx');
 
-writePlanWorkbook(plan, out)
-  .then((file) => {
-    const net = plan.legs.flatMap((l) => l.lines).reduce((a, l) => a + l.net, 0);
-    console.log(`wrote ${file}`);
-    console.log(`  legs      ${plan.legs.length} (${plan.legs.map((l) => l.media).join(' + ')})`);
-    console.log(`  net       ${net.toLocaleString('en-IN')}`);
-    console.log(`  gst       ${(net * GST).toLocaleString('en-IN')}`);
-    console.log(`  total     ${(net * 1.18).toLocaleString('en-IN')}`);
-    console.log(`  reserve   ${plan.reserves[0].amount.toLocaleString('en-IN')}`);
-    console.log(`  budget    ${plan.budget.toLocaleString('en-IN')} (incl GST)`);
-  })
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+(async () => {
+  const file = await writePlanWorkbook(plan, out);
+  const net = plan.legs.flatMap((l) => l.lines).reduce((a, l) => a + l.net, 0);
+  console.log(`wrote ${file}`);
+  console.log(`  legs      ${plan.legs.length} (${plan.legs.map((l) => l.media).join(' + ')})`);
+  console.log(`  net       ${net.toLocaleString('en-IN')}`);
+  console.log(`  gst       ${(net * GST).toLocaleString('en-IN')}`);
+  console.log(`  total     ${(net * 1.18).toLocaleString('en-IN')}`);
+  console.log(`  reserve   ${plan.reserves[0].amount.toLocaleString('en-IN')}`);
+  console.log(`  budget    ${plan.budget.toLocaleString('en-IN')} (incl GST)`);
+
+  if (!upload) return;
+
+  if (!isConfigured()) {
+    throw new Error(`--upload needs Appwrite credentials. Missing: ${missingConfig().join(', ')}`);
+  }
+  const stored = await uploadPlan(await planWorkbookBuffer(plan), { plan });
+  console.log(`\nuploaded to Appwrite bucket ${stored.bucketId}`);
+  console.log(`  file      ${stored.name} (${stored.fileId})`);
+  console.log(`  size      ${(stored.size / 1024).toFixed(1)} KB`);
+  console.log(`  download  ${stored.downloadUrl}`);
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

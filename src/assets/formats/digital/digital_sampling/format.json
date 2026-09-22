@@ -1,0 +1,76 @@
+{
+  "slug": "digital_sampling",
+  "family": "digital",
+  "media_type": "Digital Sampling",
+  "label": "Digital Sampling",
+  "sheet_name": "Digital Sampling",
+  "title": "PLAN FOR DIGITAL ADVERTISING",
+  "terms_key": "digital_sampling",
+  "rules_key": "digital_sampling",
+  "unit_noun": "Sample",
+  "source": "client sheet supplied by the EP desk: Digital plan.xlsx :: Leaflet",
+  "template": "../Digital Plan.xlsx",
+  "template_sheet": "Leaflet",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Platform",
+      "field": "platform",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Activation Type",
+      "field": "activation_type",
+      "type": "text",
+      "width": 19.1
+    },
+    {
+      "header": "SKU",
+      "field": "sku",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Total Samples",
+      "field": "qty",
+      "type": "int",
+      "width": 21.4
+    },
+    {
+      "header": "Cost per Sample/product",
+      "field": "rate",
+      "type": "money2",
+      "width": 23.4
+    },
+    {
+      "header": "Deliverable",
+      "field": "deliverable",
+      "type": "text",
+      "width": 13.6
+    },
+    {
+      "header": "Total Rate",
+      "field": "net",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14.4
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 23
+    }
+  ]
+}

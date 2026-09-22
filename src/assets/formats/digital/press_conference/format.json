@@ -1,0 +1,51 @@
+{
+  "slug": "press_conference",
+  "family": "digital",
+  "media_type": "Press Conference",
+  "label": "Press Conference",
+  "sheet_name": "Press Conference",
+  "title": "Press Conference",
+  "terms_key": "digital",
+  "rules_key": "digital",
+  "unit_noun": "Conference",
+  "source": "client sheet supplied by the EP desk: Press Conference.xlsx :: Plan",
+  "template": "Press Conference.xlsx",
+  "columns": [
+    {
+      "header": "Sr. no.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Region",
+      "field": "region",
+      "type": "text",
+      "width": 14
+    },
+    {
+      "header": "Expected Media",
+      "field": "expected_media",
+      "type": "int",
+      "width": 28.8
+    },
+    {
+      "header": "Attendance",
+      "field": "attendance",
+      "type": "int",
+      "width": 22.1
+    },
+    {
+      "header": "Gift Vouchers (INR)",
+      "field": "gift_vouchers",
+      "type": "money",
+      "width": 26.8
+    },
+    {
+      "header": "Estimated Costing (INR)",
+      "field": "net",
+      "type": "money",
+      "width": 29.9
+    }
+  ]
+}

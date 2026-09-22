@@ -1,0 +1,23 @@
+{
+  "label": "Digital family defaults",
+  "extends": "global",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "No cancellation would be accepted during the tenure of the contract.",
+      "All Ad Spaces are subject to availability at the time of written confirmation.",
+      "Confirmation and creative should be sent two days prior the release date.",
+      "We require the creative in High resolution PDF.",
+      "100% Advance Payment.",
+      "The rates are subject to change according to the level of targeting chosen.",
+      "Clicks and CTRs are estimated, hence it is not guaranteed."
+    ],
+    "pending": []
+  },
+  "key": "digital"
+}

@@ -1,0 +1,25 @@
+{
+  "label": "Door to door leaflet and promoter activity",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - 100% advance",
+      "Area list will given by client as per day wise. Daily promoter will start the work as per work sheet give by client.",
+      "Promoter is committed for promotional work only, no labour work cost consider in this cost. And maximum 30 km it can be workout. Daily 2 promoter will do the work on field.",
+      "We don't hold any responsibility of monetory transaction online or offline with promoter.",
+      "No reporting could be possible in this kind of activity. Maximum we can share some photos per location.",
+      "If any municupal corporate or police will not allow then charge will be handle by client.",
+      "Ideally one supervisor is suggested at the team of 4 + promoters to manage and coordination. If supervisor required, additional charge of 2000/- per day will be add on.",
+      "Above mentioned cost consider booking of 5 hours + 1 hour only in a single shift. Timing of project could affect the rates vice versa.",
+      "Above cost include Per day promoter cost + Transportation Cost + Permission of door to door whenever allow + leaflet printing cost."
+    ],
+    "pending": []
+  },
+  "key": "btl_leaflet_d2d"
+}

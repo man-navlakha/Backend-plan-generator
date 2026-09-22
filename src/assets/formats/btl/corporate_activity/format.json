@@ -1,0 +1,57 @@
+{
+  "slug": "corporate_activity",
+  "family": "btl",
+  "media_type": "Corporate Activity",
+  "label": "Corporate Activity",
+  "sheet_name": "Corporate Activity",
+  "title": "Plan for Corporate Activity",
+  "terms_key": "btl",
+  "rules_key": "btl",
+  "unit_noun": "Activity",
+  "source": "client sheet supplied by the EP desk: Corporate Activity New plan (1).xlsx :: Quotation",
+  "template": "Corporate Activity.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No",
+      "field": "sr",
+      "type": "sr",
+      "width": 8.7
+    },
+    {
+      "header": "Item",
+      "field": "item",
+      "type": "text",
+      "width": 19.5
+    },
+    {
+      "header": "Size",
+      "field": "size",
+      "type": "text",
+      "width": 8.7
+    },
+    {
+      "header": "Cost per unit",
+      "field": "rate",
+      "type": "money",
+      "width": 8.7
+    },
+    {
+      "header": "Qty",
+      "field": "qty",
+      "type": "int",
+      "width": 11.7
+    },
+    {
+      "header": "Total Cost",
+      "field": "net",
+      "type": "money",
+      "width": 13.5
+    },
+    {
+      "header": "Remarks",
+      "field": "remark",
+      "type": "text",
+      "width": 8.7
+    }
+  ]
+}

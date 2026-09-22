@@ -5,16 +5,52 @@
       "auto",
       "bus",
       "cab",
-      "metro_train",
-      "premium_train",
-      "passenger_train",
-      "toy_train",
       "e_rickshaw",
-      "tricycle",
-      "mobile_van"
+      "metro_train",
+      "mobile_van",
+      "passenger_train",
+      "premium_train",
+      "toy_train",
+      "tricycle"
     ],
     "radio": [
       "fm_radio"
+    ],
+    "tv": [
+      "television"
+    ],
+    "cinema": [
+      "cinema"
+    ],
+    "outdoor": [
+      "hoarding"
+    ],
+    "print": [
+      "newspaper",
+      "magazine"
+    ],
+    "digital": [
+      "meta_ads",
+      "youtube",
+      "google_business",
+      "in_app",
+      "digital_sampling",
+      "digital_pr",
+      "pr",
+      "influencer",
+      "press_conference"
+    ],
+    "btl": [
+      "balloon",
+      "corporate_activity",
+      "corporate_digital_screens",
+      "society_digital_screens",
+      "dealer_board",
+      "leaflet_d2d",
+      "leaflet_insertion",
+      "no_parking",
+      "traffic_barricade",
+      "wall_painting"
     ]
   },
   "media_types": {
@@ -50,6 +86,229 @@
       "template": "assets/formats/transit/metro_train/Metro.xlsx",
       "rules_key": "transit_metro"
     },
+    "Tricycle": {
+      "slug": "tricycle",
+      "family": "transit",
+      "folder": "assets/formats/transit/tricycle",
+      "spec": "assets/formats/transit/tricycle/format.json",
+      "template": "assets/formats/transit/tricycle/Tricycle.xlsx",
+      "rules_key": "transit_tricycle"
+    },
+    "Mobile Van": {
+      "slug": "mobile_van",
+      "family": "transit",
+      "folder": "assets/formats/transit/mobile_van",
+      "spec": "assets/formats/transit/mobile_van/format.json",
+      "template": "assets/formats/transit/mobile_van/Mobile Van.xlsx",
+      "rules_key": "transit_mobile_van"
+    },
+    "Radio": {
+      "slug": "fm_radio",
+      "family": "radio",
+      "folder": "assets/formats/radio/fm_radio",
+      "spec": "assets/formats/radio/fm_radio/format.json",
+      "template": "assets/formats/radio/fm_radio/Radio.xlsx",
+      "rules_key": "radio"
+    },
+    "Television": {
+      "slug": "television",
+      "family": "tv",
+      "folder": "assets/formats/tv/television",
+      "spec": "assets/formats/tv/television/format.json",
+      "template": "assets/formats/tv/television/Television.xlsx",
+      "rules_key": "tv"
+    },
+    "Cinema": {
+      "slug": "cinema",
+      "family": "cinema",
+      "folder": "assets/formats/cinema/cinema",
+      "spec": "assets/formats/cinema/cinema/format.json",
+      "template": "assets/formats/cinema/cinema/Cinema.xlsx",
+      "rules_key": "cinema"
+    },
+    "Outdoor": {
+      "slug": "hoarding",
+      "family": "outdoor",
+      "folder": "assets/formats/outdoor/hoarding",
+      "spec": "assets/formats/outdoor/hoarding/format.json",
+      "template": "assets/formats/outdoor/hoarding/Outdoor.xlsx",
+      "rules_key": "outdoor"
+    },
+    "Newspaper": {
+      "slug": "newspaper",
+      "family": "print",
+      "folder": "assets/formats/print/newspaper",
+      "spec": "assets/formats/print/newspaper/format.json",
+      "template": "assets/formats/print/newspaper/Newspaper.xlsx",
+      "rules_key": "print_newspaper"
+    },
+    "Magazine": {
+      "slug": "magazine",
+      "family": "print",
+      "folder": "assets/formats/print/magazine",
+      "spec": "assets/formats/print/magazine/format.json",
+      "template": "assets/formats/print/magazine/Magazine.xlsx",
+      "rules_key": "print_magazine"
+    },
+    "Meta Ads": {
+      "slug": "meta_ads",
+      "family": "digital",
+      "folder": "assets/formats/digital/meta_ads",
+      "spec": "assets/formats/digital/meta_ads/format.json",
+      "template": "assets/formats/digital/Digital Plan.xlsx",
+      "template_sheet": "Meta Ads",
+      "rules_key": "digital_meta"
+    },
+    "YouTube": {
+      "slug": "youtube",
+      "family": "digital",
+      "folder": "assets/formats/digital/youtube",
+      "spec": "assets/formats/digital/youtube/format.json",
+      "template": "assets/formats/digital/Digital Plan.xlsx",
+      "template_sheet": "Plan for YouTube",
+      "rules_key": "digital"
+    },
+    "Google Store Promotion": {
+      "slug": "google_business",
+      "family": "digital",
+      "folder": "assets/formats/digital/google_business",
+      "spec": "assets/formats/digital/google_business/format.json",
+      "template": "assets/formats/digital/Digital Plan.xlsx",
+      "template_sheet": "Google Store Promotion",
+      "rules_key": "digital"
+    },
+    "In-App": {
+      "slug": "in_app",
+      "family": "digital",
+      "folder": "assets/formats/digital/in_app",
+      "spec": "assets/formats/digital/in_app/format.json",
+      "template": "assets/formats/digital/Digital Plan.xlsx",
+      "template_sheet": "In-app",
+      "rules_key": "digital_inapp"
+    },
+    "Digital Sampling": {
+      "slug": "digital_sampling",
+      "family": "digital",
+      "folder": "assets/formats/digital/digital_sampling",
+      "spec": "assets/formats/digital/digital_sampling/format.json",
+      "template": "assets/formats/digital/Digital Plan.xlsx",
+      "template_sheet": "Leaflet",
+      "rules_key": "digital_sampling"
+    },
+    "Digital PR": {
+      "slug": "digital_pr",
+      "family": "digital",
+      "folder": "assets/formats/digital/digital_pr",
+      "spec": "assets/formats/digital/digital_pr/format.json",
+      "template": "assets/formats/digital/Digital PR.xlsx",
+      "template_sheet": "Plan for Digital PR",
+      "rules_key": "digital_pr"
+    },
+    "PR": {
+      "slug": "pr",
+      "family": "digital",
+      "folder": "assets/formats/digital/pr",
+      "spec": "assets/formats/digital/pr/format.json",
+      "template": "assets/formats/digital/Digital PR.xlsx",
+      "template_sheet": "Plan for PR",
+      "rules_key": "pr"
+    },
+    "Influencer": {
+      "slug": "influencer",
+      "family": "digital",
+      "folder": "assets/formats/digital/influencer",
+      "spec": "assets/formats/digital/influencer/format.json",
+      "template": "assets/formats/digital/influencer/Influencer.xlsx",
+      "rules_key": "influencer"
+    },
+    "Press Conference": {
+      "slug": "press_conference",
+      "family": "digital",
+      "folder": "assets/formats/digital/press_conference",
+      "spec": "assets/formats/digital/press_conference/format.json",
+      "template": "assets/formats/digital/press_conference/Press Conference.xlsx",
+      "rules_key": "digital"
+    },
+    "Balloon Branding": {
+      "slug": "balloon",
+      "family": "btl",
+      "folder": "assets/formats/btl/balloon",
+      "spec": "assets/formats/btl/balloon/format.json",
+      "template": "assets/formats/btl/balloon/Balloon.xlsx",
+      "rules_key": "btl_balloon"
+    },
+    "Corporate Activity": {
+      "slug": "corporate_activity",
+      "family": "btl",
+      "folder": "assets/formats/btl/corporate_activity",
+      "spec": "assets/formats/btl/corporate_activity/format.json",
+      "template": "assets/formats/btl/corporate_activity/Corporate Activity.xlsx",
+      "rules_key": "btl"
+    },
+    "Corporate Digital Screens": {
+      "slug": "corporate_digital_screens",
+      "family": "btl",
+      "folder": "assets/formats/btl/corporate_digital_screens",
+      "spec": "assets/formats/btl/corporate_digital_screens/format.json",
+      "template": "assets/formats/btl/corporate_digital_screens/Corporate Digital Screens.xlsx",
+      "rules_key": "btl"
+    },
+    "Society Digital Screens": {
+      "slug": "society_digital_screens",
+      "family": "btl",
+      "folder": "assets/formats/btl/society_digital_screens",
+      "spec": "assets/formats/btl/society_digital_screens/format.json",
+      "template": "assets/formats/btl/society_digital_screens/Digital Screen in Society.xlsx",
+      "rules_key": "btl_society_screens"
+    },
+    "Dealer Board": {
+      "slug": "dealer_board",
+      "family": "btl",
+      "folder": "assets/formats/btl/dealer_board",
+      "spec": "assets/formats/btl/dealer_board/format.json",
+      "template": "assets/formats/btl/dealer_board/Dealer Board.xlsx",
+      "rules_key": "btl_dealer_board"
+    },
+    "Leaflet Door to Door": {
+      "slug": "leaflet_d2d",
+      "family": "btl",
+      "folder": "assets/formats/btl/leaflet_d2d",
+      "spec": "assets/formats/btl/leaflet_d2d/format.json",
+      "template": "assets/formats/btl/leaflet_d2d/Leaflet Door to Door.xlsx",
+      "rules_key": "btl_leaflet_d2d"
+    },
+    "Leaflet Insertion": {
+      "slug": "leaflet_insertion",
+      "family": "btl",
+      "folder": "assets/formats/btl/leaflet_insertion",
+      "spec": "assets/formats/btl/leaflet_insertion/format.json",
+      "template": "assets/formats/btl/leaflet_insertion/Leaflet Insertion.xlsx",
+      "rules_key": "btl"
+    },
+    "No Parking Board": {
+      "slug": "no_parking",
+      "family": "btl",
+      "folder": "assets/formats/btl/no_parking",
+      "spec": "assets/formats/btl/no_parking/format.json",
+      "template": "assets/formats/btl/no_parking/No Parking Board.xlsx",
+      "rules_key": "btl_no_parking"
+    },
+    "Traffic Barricade": {
+      "slug": "traffic_barricade",
+      "family": "btl",
+      "folder": "assets/formats/btl/traffic_barricade",
+      "spec": "assets/formats/btl/traffic_barricade/format.json",
+      "template": "assets/formats/btl/traffic_barricade/Traffic Barricade.xlsx",
+      "rules_key": "btl_traffic_barricade"
+    },
+    "Wall Painting": {
+      "slug": "wall_painting",
+      "family": "btl",
+      "folder": "assets/formats/btl/wall_painting",
+      "spec": "assets/formats/btl/wall_painting/format.json",
+      "template": "assets/formats/btl/wall_painting/Wall Painting.xlsx",
+      "rules_key": "btl_wall_painting"
+    },
     "Premium Train": {
       "slug": "premium_train",
       "family": "transit",
@@ -81,30 +340,24 @@
       "spec": "assets/formats/transit/e_rickshaw/format.json",
       "template": "assets/formats/transit/e_rickshaw/E Rickshaw.xlsx",
       "rules_key": "transit_auto"
+    }
+  },
+  "decks": {
+    "Outdoor Execution": {
+      "family": "outdoor",
+      "template": "assets/formats/outdoor/decks/Execution PPT Outdoor.pptx"
     },
-    "Tricycle": {
-      "slug": "tricycle",
+    "Outdoor OOH Deck": {
+      "family": "outdoor",
+      "template": "assets/formats/outdoor/decks/Outdoor OOH Deck 2.pptx"
+    },
+    "Airport": {
       "family": "transit",
-      "folder": "assets/formats/transit/tricycle",
-      "spec": "assets/formats/transit/tricycle/format.json",
-      "template": "assets/formats/transit/tricycle/Tricycle.xlsx",
-      "rules_key": "transit"
+      "template": "assets/formats/transit/decks/Airport Plan.pptx"
     },
-    "Mobile Van": {
-      "slug": "mobile_van",
+    "Transit": {
       "family": "transit",
-      "folder": "assets/formats/transit/mobile_van",
-      "spec": "assets/formats/transit/mobile_van/format.json",
-      "template": "assets/formats/transit/mobile_van/Mobile Van.xlsx",
-      "rules_key": "transit"
-    },
-    "Radio": {
-      "slug": "fm_radio",
-      "family": "radio",
-      "folder": "assets/formats/radio/fm_radio",
-      "spec": "assets/formats/radio/fm_radio/format.json",
-      "template": "assets/formats/radio/fm_radio/Radio.xlsx",
-      "rules_key": "radio"
+      "template": "assets/formats/transit/decks/Transit Plan.pptx"
     }
   },
   "rules_dir": "assets/rules"

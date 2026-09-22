@@ -1,0 +1,45 @@
+{
+  "slug": "dealer_board",
+  "family": "btl",
+  "media_type": "Dealer Board",
+  "label": "Dealer Board",
+  "sheet_name": "Dealer Board",
+  "title": "Quotation for Dealer Board and In-shop Branding",
+  "terms_key": "btl_dealer_board",
+  "rules_key": "btl_dealer_board",
+  "unit_noun": "Board",
+  "source": "client sheet supplied by the EP desk: Dealer Board.xlsx :: Quotation",
+  "template": "Dealer Board.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Element",
+      "field": "element",
+      "type": "text",
+      "width": 16.4
+    },
+    {
+      "header": "Specification",
+      "field": "specification",
+      "type": "text",
+      "width": 26.3
+    },
+    {
+      "header": "Rate Per Sq.ft",
+      "field": "rate",
+      "type": "money2",
+      "width": 20.8
+    },
+    {
+      "header": "Remarks",
+      "field": "remark",
+      "type": "text",
+      "width": 26.7
+    }
+  ]
+}

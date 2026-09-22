@@ -1,0 +1,96 @@
+{
+  "slug": "in_app",
+  "family": "digital",
+  "media_type": "In-App",
+  "label": "In-App",
+  "sheet_name": "In-App",
+  "title": "PROPOSAL FOR DIGITAL BRANDING",
+  "terms_key": "digital_inapp",
+  "rules_key": "digital_inapp",
+  "unit_noun": "Campaign",
+  "source": "client sheet supplied by the EP desk: Digital plan.xlsx :: In-app",
+  "template": "../Digital Plan.xlsx",
+  "template_sheet": "In-app",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8.9
+    },
+    {
+      "header": "Platform",
+      "field": "platform",
+      "type": "text",
+      "width": 8.9
+    },
+    {
+      "header": "Ad Type",
+      "field": "ad_type",
+      "type": "text",
+      "width": 13.6
+    },
+    {
+      "header": "Estd Reach",
+      "field": "reach",
+      "type": "text",
+      "width": 14.6
+    },
+    {
+      "header": "Freq",
+      "field": "frequency",
+      "type": "text",
+      "width": 8.9
+    },
+    {
+      "header": "Impressions / Order",
+      "field": "impressions",
+      "type": "text",
+      "width": 14.8,
+      "note": "Source sheet heads this column \"Impressioms/ order\"."
+    },
+    {
+      "header": "Duration",
+      "field": "duration",
+      "type": "text",
+      "width": 13.8
+    },
+    {
+      "header": "Targeting",
+      "field": "targeting",
+      "type": "text",
+      "width": 21
+    },
+    {
+      "header": "CPM",
+      "field": "cpm",
+      "type": "money2",
+      "width": 8.9
+    },
+    {
+      "header": "Ad Format",
+      "field": "ad_format",
+      "type": "text",
+      "width": 20.4,
+      "note": "Source sheet heads this column \"Ad Type\"."
+    },
+    {
+      "header": "Cost",
+      "field": "net",
+      "type": "money",
+      "width": 8.9
+    },
+    {
+      "header": "GST",
+      "field": "gst",
+      "type": "money",
+      "width": 8.9
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15.9
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "label": "Digital sampling and product insertion",
+  "extends": "digital",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "No cancellation would be accepted during the tenure of the contract.",
+      "All Ad Spaces are subject to availability at the time of written confirmation.",
+      "100% Advance payment.",
+      "The final rate per product/sample/ vouchers will depend on the size of the product or voucher.",
+      "Cost per voucher would be as per the quantity.",
+      "It will take 15 working days to start the campaign, post the approval of the campaign from the platform.",
+      "Products would be distributed where platform is operational.",
+      "Printing/Manufacturing of the products and delivering to respective city Warehouses, will be borne by the Brands.",
+      "Shared Quantity is tentative. Final quantity shall be shared post the platform's approval.",
+      "Exact count report is not possible. Report with exact count of samples scanned will be provided once in every week/post completion of campaign. We will tell you about the unique user reached through this campaign and will provide the few cart images as proof of execution.",
+      "Unique UPC/ barcode on sampling SKU is mandatory; this UPC/barcode has to be different from any existing saleable SKU listed on the platform.",
+      "Manufacturing & Expiry date to be clearly visible on sampling SKU.",
+      "Minimum shelf life of 50% or 90 days (whichever is earlier) is required for the sampling SKU."
+    ],
+    "pending": []
+  },
+  "key": "digital_sampling"
+}

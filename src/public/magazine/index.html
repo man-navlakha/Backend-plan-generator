@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Publications, readership and ad positions. Pricing options and data quality for plan creation.">
+  <title>Magazine Master / Media Desk</title>
+  <link rel="stylesheet" href="/media-catalog/styles.css">
+  <script src="/media-catalog/app.js" defer></script>
+</head>
+<body data-media="magazine">
+  <header class="masthead">
+    <a class="brand" href="/magazine/"><span class="brand-mark">MG</span><span><b>Magazine Master</b><small>Media desk / plan-ready inventory</small></span></a>
+    <nav class="master-nav" id="master-nav" aria-label="Master catalogs"></nav>
+    <span class="online"><i></i>SQLite source online</span>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="hero-top"><span>MASTER MAGAZINE</span><span>2026 / INVENTORY</span></div>
+      <div class="hero-main"><div><p class="eyebrow">Publications, readership and ad positions</p><h1>Make an impression.</h1></div><p>Explore titles by category, readership and frequency, with every insert and position option at hand.</p></div>
+      <div class="hero-art" aria-hidden="true"><span>MAGAZINE</span></div>
+    </section>
+    <section class="stats" id="stats" aria-label="Magazine Master statistics"></section>
+    <section class="quality-banner">
+      <div class="quality-mark">!</div><div><p class="eyebrow">Plan-readiness review</p><h2><span id="quality-count">—</span> findings to review</h2><p id="quality-copy">Source rows, current values and suggested fixes are included in the repair sheet.</p></div>
+      <a class="download-button" id="download" href="/api/masters/magazine/problems.csv" download>Download all findings <small>CSV repair sheet ↧</small></a>
+    </section>
+    <section class="catalog">
+      <div class="section-heading"><div><small>03 / SOURCE INVENTORY</small><h2>Title directory</h2></div><p id="result-label">Loading titles…</p></div>
+      <form id="filters" class="filters" role="search">
+        <label class="search"><span>Search titles, SKU or source field</span><input id="search" type="search" placeholder="Search titles…" autocomplete="off"></label>
+        <div id="media-filters" class="media-filters"></div>
+        <label><span>Data quality</span><select id="problem"><option value="">All records</option></select></label>
+        <label><span>Sort</span><select id="sort"><option value="source">Master order</option><option value="name">Name A–Z</option><option value="price_low">Lowest price</option><option value="price_high">Highest price</option><option value="issues">Most issues</option></select></label>
+        <button id="reset" class="reset-button" type="button">Reset filters</button>
+      </form>
+      <div id="facet-strip" class="facet-strip" aria-label="Quick filters"></div>
+      <div id="inventory" class="inventory" aria-live="polite"></div>
+      <div id="load-marker" class="load-marker"></div>
+      <p id="load-note" class="load-note">More matching titles appear as you scroll.</p>
+    </section>
+  </main>
+  <footer><b>Magazine Master</b><span>Excel → SQLite → better plans</span><a href="/masters/">All masters ↗</a></footer>
+  <div id="drawer-shell" class="drawer-shell" hidden><button id="drawer-scrim" class="drawer-scrim" aria-label="Close product details"></button><aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title"><button id="drawer-close" class="drawer-close" aria-label="Close product details">×</button><div id="drawer-content"></div></aside></div>
+</body>
+</html>

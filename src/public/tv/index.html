@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Channels, audiences and airtime. Pricing options and data quality for plan creation.">
+  <title>Television Master / Media Desk</title>
+  <link rel="stylesheet" href="/media-catalog/styles.css">
+  <script src="/media-catalog/app.js" defer></script>
+</head>
+<body data-media="tv">
+  <header class="masthead">
+    <a class="brand" href="/tv/"><span class="brand-mark">TV</span><span><b>Television Master</b><small>Media desk / plan-ready inventory</small></span></a>
+    <nav class="master-nav" id="master-nav" aria-label="Master catalogs"></nav>
+    <span class="online"><i></i>SQLite source online</span>
+  </header>
+  <main>
+    <section class="hero">
+      <div class="hero-top"><span>MASTER TV</span><span>2026 / INVENTORY</span></div>
+      <div class="hero-main"><div><p class="eyebrow">Channels, audiences and airtime</p><h1>Be seen on screen.</h1></div><p>Compare channels, genres, languages, time bands and ad-length rules before planning a TV campaign.</p></div>
+      <div class="hero-art" aria-hidden="true"><span>TELEVISION</span></div>
+    </section>
+    <section class="stats" id="stats" aria-label="Television Master statistics"></section>
+    <section class="quality-banner">
+      <div class="quality-mark">!</div><div><p class="eyebrow">Plan-readiness review</p><h2><span id="quality-count">—</span> findings to review</h2><p id="quality-copy">Source rows, current values and suggested fixes are included in the repair sheet.</p></div>
+      <a class="download-button" id="download" href="/api/masters/tv/problems.csv" download>Download all findings <small>CSV repair sheet ↧</small></a>
+    </section>
+    <section class="catalog">
+      <div class="section-heading"><div><small>03 / SOURCE INVENTORY</small><h2>Channel directory</h2></div><p id="result-label">Loading channels…</p></div>
+      <form id="filters" class="filters" role="search">
+        <label class="search"><span>Search channels, SKU or source field</span><input id="search" type="search" placeholder="Search channels…" autocomplete="off"></label>
+        <div id="media-filters" class="media-filters"></div>
+        <label><span>Data quality</span><select id="problem"><option value="">All records</option></select></label>
+        <label><span>Sort</span><select id="sort"><option value="source">Master order</option><option value="name">Name A–Z</option><option value="price_low">Lowest price</option><option value="price_high">Highest price</option><option value="issues">Most issues</option></select></label>
+        <button id="reset" class="reset-button" type="button">Reset filters</button>
+      </form>
+      <div id="facet-strip" class="facet-strip" aria-label="Quick filters"></div>
+      <div id="inventory" class="inventory" aria-live="polite"></div>
+      <div id="load-marker" class="load-marker"></div>
+      <p id="load-note" class="load-note">More matching channels appear as you scroll.</p>
+    </section>
+  </main>
+  <footer><b>Television Master</b><span>Excel → SQLite → better plans</span><a href="/masters/">All masters ↗</a></footer>
+  <div id="drawer-shell" class="drawer-shell" hidden><button id="drawer-scrim" class="drawer-scrim" aria-label="Close product details"></button><aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title"><button id="drawer-close" class="drawer-close" aria-label="Close product details">×</button><div id="drawer-content"></div></aside></div>
+</body>
+</html>

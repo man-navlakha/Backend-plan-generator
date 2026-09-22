@@ -1,0 +1,82 @@
+{
+  "slug": "balloon",
+  "family": "btl",
+  "media_type": "Balloon Branding",
+  "label": "Balloon",
+  "sheet_name": "Balloon",
+  "title": "PROPOSAL FOR BALLOON BRANDING",
+  "terms_key": "btl_balloon",
+  "rules_key": "btl_balloon",
+  "unit_noun": "Balloon",
+  "source": "client sheet supplied by the EP desk: Balloon Branding.xlsx :: Quotation",
+  "template": "Balloon.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 8.9
+    },
+    {
+      "header": "Elements",
+      "field": "element",
+      "type": "text",
+      "width": 22.7
+    },
+    {
+      "header": "Balloon Type",
+      "field": "balloon_type",
+      "type": "text",
+      "width": 20.3
+    },
+    {
+      "header": "Material",
+      "field": "material",
+      "type": "text",
+      "width": 11.6
+    },
+    {
+      "header": "Diameter",
+      "field": "diameter",
+      "type": "text",
+      "width": 13.2
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 15.2
+    },
+    {
+      "header": "Qty",
+      "field": "qty",
+      "type": "int",
+      "width": 8.9
+    },
+    {
+      "header": "Rate (per Balloon)",
+      "field": "rate",
+      "type": "money",
+      "width": 21.8,
+      "note": "Source sheet heads this column \"Rate (per Balloon )\"."
+    },
+    {
+      "header": "Amount",
+      "field": "net",
+      "type": "money",
+      "width": 8.9
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 14.8
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 13.8
+    }
+  ]
+}

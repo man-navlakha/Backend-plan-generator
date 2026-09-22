@@ -1,0 +1,19 @@
+{
+  "label": "Non-traditional and BTL family defaults",
+  "extends": "global",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms - 100% advance",
+      "Post completion of the execution, we will be sharing with you Execution Photographs between 8 to 10 Working days.",
+      "We are not Liable to submit anything other than Photographs."
+    ],
+    "pending": []
+  },
+  "key": "btl"
+}

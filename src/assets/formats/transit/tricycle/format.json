@@ -5,64 +5,62 @@
   "label": "Tricycle",
   "sheet_name": "Tricycle",
   "title": "Plan for - Tricycle Advertising",
-  "terms_key": "transit",
-  "rules_key": "transit",
+  "terms_key": "transit_tricycle",
+  "rules_key": "transit_tricycle",
   "unit_noun": "Tricycle",
-  "source": "built from the rate master. Priced per tricycle, and the master carries a Duration attribute of 7, 15, 20 or 30 days, so the sheet states the duration rather than months",
+  "source": "client sheet supplied by the EP desk: Tricycle Branding.xlsx :: Quotation",
   "template": "Tricycle.xlsx",
   "columns": [
     {
-      "header": "Sr. No.",
+      "header": "Sr.No.",
       "field": "sr",
       "type": "sr",
-      "width": 8
+      "width": 14
     },
     {
       "header": "State",
       "field": "state",
       "type": "text",
-      "width": 16
+      "width": 14
     },
     {
       "header": "Location",
       "field": "market",
       "type": "text",
-      "width": 18
+      "width": 14
+    },
+    {
+      "header": "Type of Tricycle",
+      "field": "price_option",
+      "type": "text",
+      "width": 13.8
     },
     {
       "header": "No. of Tricycles",
       "field": "qty",
       "type": "int",
-      "width": 14
+      "width": 14.9
     },
     {
-      "header": "Type",
-      "field": "price_option",
-      "type": "text",
-      "width": 30,
-      "note": "box shape, hut shape, curve shape, backlit or non lit"
+      "header": "No. of days",
+      "field": "days",
+      "type": "int",
+      "width": 14.8
     },
     {
-      "header": "Duration",
-      "field": "duration",
-      "type": "text",
-      "width": 14,
-      "note": "7, 15, 20 or 30 days, off the master attribute"
-    },
-    {
-      "header": "Rate per Tricycle",
+      "header": "Cost per day (Incl. P&M)",
       "field": "rate",
       "type": "money",
-      "width": 16
+      "width": 24.4
     },
     {
-      "header": "Cost",
+      "header": "Rate Per Month",
       "field": "net",
       "type": "money",
-      "width": 16
+      "width": 17.6
     },
     {
-      "header": "GST @ 18%",
+      "header": "GST 18%",
       "field": "gst",
       "type": "money",
       "width": 14
@@ -71,7 +69,7 @@
       "header": "Total Cost",
       "field": "total",
       "type": "money",
-      "width": 16
+      "width": 16.8
     }
   ]
 }

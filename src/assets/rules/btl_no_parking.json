@@ -1,0 +1,27 @@
+{
+  "label": "No parking board branding",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Payment Terms: 100 % Advance will required to start production.",
+      "We will only provide one time installation of the No Parking Board.",
+      "Production time will be shared after sharing the quantity, rates and dates of the campaign.",
+      "Above mentioned rates are based on the specification and quantity mentioned here. If there are any changes the rates will vary accordingly.",
+      "Given cost includes production and installation.",
+      "Given rates are for single creative. If more than 1 creative, rates will vary accordingly.",
+      "In given Qty, 1 Area will cover in 500 Qty NPB. For example : 500 qty per city will install maximum in 1-2 area of city.",
+      "Execution & Installation: Board will be installed at the gate of bungalows, House gates, Tree guard iron net, electrical Pole, tar, garden wall, etc.",
+      "Municipal Permission charges will be extra, if required."
+    ],
+    "pending": [
+      "Rates are valid only till 28 Feb, 2026. — re-date before this sheet goes out."
+    ]
+  },
+  "key": "btl_no_parking"
+}

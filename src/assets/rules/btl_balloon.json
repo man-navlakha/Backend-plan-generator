@@ -1,0 +1,29 @@
+{
+  "label": "Balloon branding",
+  "extends": "btl",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "Above mentioned rates are based on specification and quantity which are mentioned here. If there are any changes, the rates can change accordingly.",
+      "Payment terms: 100% Advance will be required to start the production.",
+      "Transportation charge will be extra.",
+      "Delivery will be 8-9 days after the payment.",
+      "Given rates are with production & onetime installation only.",
+      "Gas refilling charge will be extra. And transportation for the same will be extra at a time.",
+      "Premises & permission for installation will be provided by client side.",
+      "We will only install balloon at given space of client. We will just do production and installation.",
+      "If any damage is done by natural calamities, we will not be responsible for that. We will not repair damage balloon.",
+      "Uninstallation of the balloon will be client side. Balloon will be given to client.",
+      "If any Lock down or any Public Bandh happens, we won’t compensate those days."
+    ],
+    "pending": [
+      "Rates are valid till 10 June 2025. The rates are subject to change after 10 June 2025. — re-date before this sheet goes out."
+    ]
+  },
+  "key": "btl_balloon"
+}

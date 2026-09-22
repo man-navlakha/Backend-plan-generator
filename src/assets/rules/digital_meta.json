@@ -1,0 +1,24 @@
+{
+  "label": "Meta (Facebook and Instagram) advertising",
+  "extends": "digital",
+  "constraints": [],
+  "scenarios": [],
+  "guidance": {
+    "do": [],
+    "dont": []
+  },
+  "terms": {
+    "approved": [
+      "No cancellation would be accepted during the tenure of the contract.",
+      "Confirmation and creative should be sent two days prior the release date.",
+      "We require the creative in High resolution PDF.",
+      "100% Advance Payment.",
+      "Clicks/Reach are subject to change. Final plan will be shared before the campaign goes live.",
+      "The rates are subject to change according to the level of targeting chosen.",
+      "The number of clicks/Reach may vary depending on brand’s page traffic.",
+      "Quality of leads is not guarateed on Meta Ads since it depends on various factors like creative, ticket size, brand page traffic etc."
+    ],
+    "pending": []
+  },
+  "key": "digital_meta"
+}

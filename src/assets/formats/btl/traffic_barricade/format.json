@@ -1,0 +1,69 @@
+{
+  "slug": "traffic_barricade",
+  "family": "btl",
+  "media_type": "Traffic Barricade",
+  "label": "Traffic Barricade",
+  "sheet_name": "Traffic Barricade",
+  "title": "Plan for Traffic Barricade",
+  "terms_key": "btl_traffic_barricade",
+  "rules_key": "btl_traffic_barricade",
+  "unit_noun": "Barricade",
+  "source": "client sheet supplied by the EP desk: Traffic barricades.xlsx :: Quotation",
+  "template": "Traffic Barricade.xlsx",
+  "columns": [
+    {
+      "header": "Sr. No.",
+      "field": "sr",
+      "type": "sr",
+      "width": 14
+    },
+    {
+      "header": "Elements",
+      "field": "element",
+      "type": "text",
+      "width": 10.3
+    },
+    {
+      "header": "Specification",
+      "field": "specification",
+      "type": "text",
+      "width": 47.8
+    },
+    {
+      "header": "Location",
+      "field": "location",
+      "type": "text",
+      "width": 24.1
+    },
+    {
+      "header": "MOQ",
+      "field": "moq",
+      "type": "int",
+      "width": 14
+    },
+    {
+      "header": "Rate",
+      "field": "rate",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "Amount",
+      "field": "net",
+      "type": "money",
+      "width": 14
+    },
+    {
+      "header": "GST @ 18%",
+      "field": "gst",
+      "type": "money",
+      "width": 12.6
+    },
+    {
+      "header": "Total Cost",
+      "field": "total",
+      "type": "money",
+      "width": 15.1
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Cinema venue master, screen pricing and plan-readiness review.">
+    <title>Cinema Master / Screen Desk</title>
+    <link rel="stylesheet" href="/transit/styles.css">
+    <link rel="stylesheet" href="/cinema/styles.css">
+    <script src="/cinema/app.js" defer></script>
+  </head>
+  <body>
+    <div class="route-line" aria-hidden="true"></div>
+    <header class="masthead">
+      <a class="brand" href="/cinema/"><span class="brand-mark">CM</span><span><b>Cinema Master</b><small>Screen desk / now showing</small></span></a>
+      <nav class="master-nav" aria-label="Master catalogs"><a href="/transit/">Transit</a><a href="/radio/">Radio</a><a class="active" href="/cinema/">Cinema</a></nav>
+      <div class="sync-state"><i></i><span>Database online</span></div>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div><p class="eyebrow">Cinema media · national screen network</p><h1 id="page-title">The big<br><em>picture.</em></h1></div>
+        <p class="hero-copy">Explore every venue, screen format and campaign rule in the cinema master. Inspect selling price against buying cost before a format enters a client plan.</p>
+        <div class="film-perforation" aria-hidden="true"></div>
+      </section>
+      <section class="stats" aria-label="Cinema database summary">
+        <article><span>Venues</span><strong id="stat-products">—</strong><small>cinema inventory</small></article>
+        <article><span>Ad formats</span><strong id="stat-options">—</strong><small>film + slide</small></article>
+        <article><span>Quantity rules</span><strong id="stat-units">—</strong><small>seconds + weeks</small></article>
+        <article class="stat-accent"><span>Chains</span><strong id="stat-chains">—</strong><small id="last-sync">loading source</small></article>
+      </section>
+      <section class="quality-banner" aria-labelledby="quality-title">
+        <div class="quality-signal" aria-hidden="true">!</div>
+        <div><p class="eyebrow">Cinema plan-readiness audit</p><h2 id="quality-title"><span id="quality-issues">—</span> findings</h2><p><b id="quality-products">—</b> venues need review. The repair CSV identifies workbook rows, current values and suggested fixes.</p></div>
+        <a class="download-button" href="/api/cinema/problems.csv" download><span>Download all findings</span><small>CSV repair sheet ↓</small></a>
+      </section>
+      <section class="catalog" aria-labelledby="catalog-title">
+        <div class="section-heading"><div><span class="section-no">03</span><h2 id="catalog-title">Venue directory</h2></div><p id="result-label" aria-live="polite">Loading venues…</p></div>
+        <form class="filters cinema-filters" id="filter-form" role="search">
+          <label class="search-field"><span>Search venue, locality or SKU</span><div><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16 16 5 5"></path></svg><input id="search" type="search" placeholder="Try PVR Mumbai"></div></label>
+          <label><span>Chain</span><select id="chain"><option value="">All chains</option></select></label>
+          <label><span>City</span><select id="city"><option value="">All cities</option></select></label>
+          <label><span>Tier</span><select id="tier"><option value="">All tiers</option></select></label>
+          <label><span>Data quality</span><select id="problem"><option value="">All records</option><option value="margin">Selling below buying</option><option value="any">Problems only</option><option value="clean">Clean records</option><option value="error">Errors only</option><option value="warning">Warnings only</option><option value="pricing">Pricing problems</option><option value="screens">Screen / seat problems</option><option value="location">Location problems</option><option value="image">Image problems</option><option value="source">Rate-source problems</option></select></label>
+          <label><span>Order</span><select id="sort"><option value="source">Master order</option><option value="name">Venue A–Z</option><option value="price_low">Lowest price</option><option value="price_high">Highest price</option><option value="seats">Most seats</option><option value="screens">Most screens</option></select></label>
+          <button class="reset-button" id="reset" type="button">Reset</button>
+        </form>
+        <div class="media-strip" id="chain-strip" aria-label="Filter by cinema chain"></div>
+        <div class="inventory-head"><span>Venue</span><span>Market</span><span>Screens / seats</span><span>Client / buying</span><span></span></div>
+        <div id="inventory" class="inventory" aria-live="polite"></div>
+        <div id="load-marker" class="load-marker" aria-hidden="true"></div>
+        <p class="all-records-note" id="load-note">All matching venues are available on this page; rows appear as you scroll.</p>
+      </section>
+    </main>
+    <footer><span>Cinema Master Database</span><span>Excel → SQLite → Planner</span><span>Backend Plan Generator</span></footer>
+    <div class="drawer-shell" id="drawer-shell" hidden><button class="drawer-scrim" id="drawer-scrim" aria-label="Close details"></button><aside class="drawer" id="drawer" tabindex="-1" aria-labelledby="drawer-title"><button class="drawer-close" id="drawer-close" aria-label="Close details">×</button><div id="drawer-content"></div></aside></div>
+    <template id="loading-template"><div class="loading-row"><i></i><i></i><i></i></div><div class="loading-row"><i></i><i></i><i></i></div><div class="loading-row"><i></i><i></i><i></i></div></template>
+  </body>
+</html>
