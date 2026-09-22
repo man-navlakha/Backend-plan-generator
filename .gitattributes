@@ -1,0 +1,34 @@
+# Line endings.
+#
+# Without this, Git on Windows warns "LF will be replaced by CRLF" on every file
+# it touches, and a file edited on Windows and on Linux shows up as changed in
+# its entirety rather than on the lines that actually changed.
+#
+# Text files are stored with LF in the repository and checked out however the
+# platform prefers. Everything else is declared binary so Git never rewrites it.
+
+* text=auto eol=lf
+
+*.js      text eol=lf
+*.json    text eol=lf
+*.sql     text eol=lf
+*.md      text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+
+# Spreadsheets, images and databases must never be line-ending converted --
+# a single rewritten byte corrupts them.
+*.xlsx    binary
+*.xls     binary
+*.db      binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.webp    binary
+*.avif    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.pptx    binary
