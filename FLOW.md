@@ -12,6 +12,227 @@ this document mostly explains its consequences.
 
 ---
 
+## CRM GET plan API
+
+This is the compatibility endpoint for a CRM that can make a GET request but cannot send a
+structured JSON body.
+
+```http
+GET /plans/generate?deal_id=...&service=...&client_brief=...
+Authorization: Bearer <CRM_API_KEY>
+```
+
+Production URL:
+
+```text
+https://backend-plan-generator.vercel.app/plans/generate
+```
+
+### CRM flow
+
+```text
+CRM
+  │  GET /plans/generate + deal_id + service + client_brief
+  ▼
+Authenticate CRM request
+  ▼
+OpenAI reviews the free-text brief and extracts company, budget, objective,
+audience, locations, duration, constraints, and warnings
+  │
+  ├── required detail missing or service conflict ──▶ 422 incomplete_brief
+  │                                                   (no plan is created)
+  ▼
+Validate service and catalog availability
+  ▼
+Prefetch matching inventory from PostgreSQL
+  ▼
+OpenAI selects catalog IDs and quantities under a strict JSON schema
+  ▼
+Server reads rates from the master catalog and calculates every amount
+  ▼
+Rules check budget, minimums, margins, and missing data
+  ▼
+ExcelJS renders the workbook ──▶ Appwrite stores it ──▶ API returns download_url
+```
+
+The service uses the OpenAI API, not the consumer ChatGPT website. Brief extraction and inventory
+selection use strict structured outputs as described in the
+[official OpenAI Structured Outputs documentation](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+### Authentication
+
+Set `CRM_API_KEY` in the deployment environment. Send it in either header:
+
+```http
+Authorization: Bearer <CRM_API_KEY>
+```
+
+or:
+
+```http
+x-api-key: <CRM_API_KEY>
+```
+
+The key must not be placed in the query string because URLs are commonly retained in CRM, proxy,
+and hosting logs.
+
+### Query parameters
+
+| Parameter | Required | Example | Meaning |
+|---|---:|---|---|
+| `deal_id` | yes | `DEAL-1042` | Stable CRM deal identifier. Maximum 200 characters. |
+| `service` | yes | `Transit` | Media name, slug, or family accepted by `GET /brief/media-types`. Maximum 200 characters. |
+| `client_brief` | yes | `Client Awadh Foods...` | URL-encoded natural-language brief. Maximum 12,000 characters. |
+| `force` | no | `true` | Regenerate an identical brief instead of reusing its existing workbook. |
+
+The client brief must explicitly contain at least:
+
+- Client/company name.
+- Total campaign budget.
+
+Objective, audience, locations, duration, dates, preferences, and constraints are optional but
+should be included whenever known. The AI extractor does not invent required information. If the
+query says `service=Radio` but the brief explicitly asks for bus branding, the API returns a service
+mismatch instead of creating a plan for the wrong medium.
+
+### Complete curl request
+
+`--data-urlencode` is important because the brief can contain spaces, `&`, currency symbols, and
+other characters that would otherwise break the URL.
+
+```bash
+curl --get "https://backend-plan-generator.vercel.app/plans/generate" \
+  -H "Authorization: Bearer $CRM_API_KEY" \
+  --data-urlencode "deal_id=DEAL-1042" \
+  --data-urlencode "service=Transit" \
+  --data-urlencode "client_brief=Client Awadh Foods Pvt. Ltd. needs a brand-awareness campaign in Lucknow and Kanpur for working professionals aged 25-40. Total budget is INR 15 lakh including GST for two months. Prefer premium bus routes."
+```
+
+Equivalent URL shape (the CRM must URL-encode every value):
+
+```text
+https://backend-plan-generator.vercel.app/plans/generate?deal_id=DEAL-1042&service=Transit&client_brief=Client%20Awadh%20Foods...
+```
+
+### Successful response
+
+The CRM should save `plan_id`, `status`, `download_url`, `totals.total`, and `strategy` back onto the
+deal.
+
+```json
+{
+  "status": "ready",
+  "plan_id": 10,
+  "deal_id": "DEAL-1042",
+  "company": "Awadh Foods Pvt. Ltd.",
+  "service": "Transit",
+  "download_url": "https://backend-plan-generator.vercel.app/plans/10/download",
+  "file_name": "deal-1042-awadh-foods-pvt-ltd-20260923-1030.xlsx",
+  "totals": {
+    "net": 1176000,
+    "gst": 211680,
+    "total": 1387680
+  },
+  "budget": 1500000,
+  "strategy": "model",
+  "flags": [],
+  "brief_review": {
+    "status": "accepted",
+    "model": "gpt-5-mini",
+    "missing_fields": [],
+    "service_conflict": false,
+    "service_conflict_reason": null,
+    "warnings": [],
+    "extracted": {
+      "company": "Awadh Foods Pvt. Ltd.",
+      "budget": 1500000,
+      "campaign_objective": "Brand awareness",
+      "target_audience": "Working professionals aged 25-40",
+      "target_locations": ["Lucknow", "Kanpur"],
+      "remarks_for_media": "Prefer premium bus routes.",
+      "duration_months": 2
+    }
+  }
+}
+```
+
+`status: "blocked"` can still include a valid workbook and `download_url`. In that case the CRM
+should create a review task and display `flags` before anyone sends the workbook to the client.
+
+### Retry and regeneration behaviour
+
+GET requests are often retried automatically. The tuple `(deal_id, normalized service,
+client_brief)` is therefore idempotent:
+
+- The first request reviews the brief and creates the plan.
+- An identical retry returns the existing plan with `"reused": true`.
+- Add `force=true` only when a planner intentionally wants a fresh model run from unchanged text.
+- A changed `client_brief` naturally creates a new brief and plan version for the same deal.
+
+### Incomplete brief response
+
+No database brief, plan, workbook, or storage file is created when required details are missing.
+
+```json
+{
+  "status": "incomplete_brief",
+  "code": "missing_brief_details",
+  "message": "The client brief must state: budget.",
+  "deal_id": "DEAL-1042",
+  "service": "Transit",
+  "brief_review": {
+    "status": "incomplete",
+    "missing_fields": ["budget"],
+    "warnings": ["No campaign budget was stated."],
+    "extracted": {
+      "company": "Awadh Foods Pvt. Ltd.",
+      "budget": null
+    }
+  }
+}
+```
+
+### CRM endpoint HTTP responses
+
+| HTTP | `status` / `code` | CRM action |
+|---:|---|---|
+| 200 | `ready` | Save the plan fields and expose the download link. |
+| 200 | `blocked` with `download_url` | Save the link and create a human-review task for `flags`. |
+| 200 | `blocked` without `download_url` | No usable inventory was selected; create a planner task. |
+| 200 | `coming_soon` | The service is valid but its rate card is not ready. |
+| 400 | `invalid_request` | Fix missing/oversized query parameters. |
+| 400 | `invalid_service` | Map the CRM service to a value from `/brief/media-types`. |
+| 401 | `unauthorized` | Fix the Bearer token or `x-api-key`. |
+| 422 | `missing_brief_details` | Ask the CRM owner to add the fields named in `missing_fields`. |
+| 422 | `service_mismatch` | Correct either the CRM service or the client brief. |
+| 502 | `brief_review_failed` | Retry later; the OpenAI review did not complete. |
+| 503 | `crm_not_configured` | Set `CRM_API_KEY` on the backend. |
+| 503 | `openai_not_configured` | Set `OPENAI_API_KEY` on the backend. |
+| 500 | `internal_error` | Keep the deal and request details, then alert the backend owner. |
+
+### CRM field mapping
+
+| CRM field | Request/response field |
+|---|---|
+| Deal identifier | request `deal_id` |
+| Service/media | request `service` |
+| Complete client brief | request `client_brief` |
+| Generated plan ID | response `plan_id` |
+| Plan status | response `status` |
+| Plan workbook | response `download_url` |
+| Plan total | response `totals.total` |
+| Review notes | response `brief_review.warnings` |
+| Planner actions | response `flags` and `desk_actions` |
+
+This endpoint is synchronous. The CRM should allow at least a 120-second timeout and should not
+start another request merely because the first is still processing. Retry safety prevents duplicate
+files after a completed request, but it cannot make two simultaneous first requests share one job.
+
+Because `client_brief` is carried in a URL, it can appear in infrastructure logs. GET exists for CRM
+compatibility; use the structured `POST /plans` API for integrations that support request bodies.
+
+---
+
 ## The one rule that matters
 
 **The model never produces a number that reaches a client.**
@@ -146,6 +367,28 @@ stays private and the workbook never becomes readable to whoever guesses a file 
 
 ## Endpoints
 
+### Plan-generation API index
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/plans/generate` | CRM compatibility flow: AI-review a free-text brief, generate, and return a workbook link. |
+| `POST` | `/plans` | Generate from an already structured JSON brief. |
+| `GET` | `/plans` | List recent generation attempts; supports `limit` from 1 to 100. |
+| `GET` | `/plans/:id` | Get one stored plan, flags, status, and file metadata. |
+| `GET` | `/plans/:id/download` | Download the generated XLSX workbook. |
+| `GET` | `/brief` | Validate an already structured brief without generating a plan. |
+| `GET` | `/brief/media-types` | List accepted services and current catalog availability. |
+| `GET` | `/health` | Lightweight process liveness check. |
+| `GET` | `/health/ready` | Dependency readiness check. |
+
+The catalog review APIs under `/api/transit`, `/api/radio`, `/api/cinema`, and `/api/masters` are
+operational tools for the internal master-data desks. They are not required by the CRM plan flow.
+
+### `GET /plans/generate` — CRM free-text brief
+
+This endpoint, its authentication, parameters, responses, retry behaviour, and CRM mappings are
+fully documented in [CRM GET plan API](#crm-get-plan-api) above.
+
 ### `POST /plans` — the whole flow
 
 ```bash
@@ -277,8 +520,10 @@ per-unit-pricing guidance before cinema is trusted.
 Dealer Board, Wall Painting, and the per-platform digital media. `GET /brief/media-types` lists them
 with reasons.
 
-**`POST /plans` is synchronous**, 38–96 seconds measured. Fine for curl and a desk tool; it needs to
-become a 202 with a job id before it can run under a short serverless timeout.
+**Plan generation is synchronous**, with 38–96 seconds measured before adding the CRM brief-review
+call. `POST /plans` and `GET /plans/generate` both need to become job-based APIs before they can run
+reliably behind a short serverless timeout. The GET endpoint currently documents a 120-second CRM
+timeout and idempotent retries as the compatibility path.
 
 **`app.tool_calls` is not written yet.** The table exists and `selectWithModel` returns the calls,
 but nothing persists them. Worth wiring — when a plan quotes the wrong SKU, the only way to find out
@@ -297,6 +542,7 @@ npm run db:setup        # create the schema (once)
 npm run db:migrate      # load SQLite masters into Postgres
 npm run db:smoke:pg     # 13 checks on the loaded data
 npm run catalog:try     # search + prefetch against seven sample briefs
+npm test                # brief-review and CRM route contract tests
 npm run dev             # server with --watch
 ```
 
@@ -304,24 +550,29 @@ npm run dev             # server with --watch
 
 ```
 DB_URL                      postgresql://...        Postgres
-OPENAI_API_KEY              sk-...                  selection
+OPENAI_API_KEY              sk-...                  CRM brief review + selection
 OPENAI_MODEL                gpt-5-mini              optional
+OPENAI_BRIEF_MODEL          gpt-5-mini              optional; defaults to OPENAI_MODEL
 PLAN_MAX_TOOL_ROUNDS        6                       optional
+CRM_API_KEY                 long-random-secret      required by GET /plans/generate
+PUBLIC_BASE_URL             https://backend-plan-generator.vercel.app
 APPWRITE_ENDPOINT           https://<region>.cloud.appwrite.io/v1
 APPWRITE_PROJECT_ID
 APPWRITE_API_KEY                                    needs files.read + files.write
 APPWRITE_PLANS_BUCKET_ID
 ```
 
-Without `OPENAI_API_KEY` the deterministic selector runs and `strategy` says so. Without `DB_URL`
-nothing works.
+Without `OPENAI_API_KEY`, structured `POST /plans` can still use the deterministic selector, but
+`GET /plans/generate` returns `503` because free-text extraction requires the model. Without
+`CRM_API_KEY`, the CRM endpoint returns `503`; without a matching request header it returns `401`.
+Without `DB_URL`, plan generation cannot persist or query the catalog.
 
 ## Map
 
 ```
 src/
   catalog/      search.js  prefetch.js  availability.js  media-map.js
-  engine/       cost.js  select.js  model.js  build.js
+  engine/       brief-review.js  cost.js  select.js  model.js  build.js
   rules/        index.js  evaluate.js  merge.js
   render/       index.js  resolvers.js  style.js
   storage/      appwrite.js

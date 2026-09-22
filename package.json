@@ -5,6 +5,7 @@
   "description": "Backend plan generator API",
   "main": "src/server.js",
   "scripts": {
+    "test": "node --test",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "vercel-build": "echo \"No build step: the catalog lives in Postgres.\"",

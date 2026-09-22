@@ -65,7 +65,11 @@ app.use((req, res) => {
 // eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+  res.status(err.status || 500).json({
+    status: 'error',
+    code: err.code || 'internal_error',
+    message: err.message || 'Internal Server Error'
+  });
 });
 
 module.exports = app;

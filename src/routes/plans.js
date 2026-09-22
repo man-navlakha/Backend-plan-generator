@@ -1,7 +1,8 @@
 /**
  * Plan generation, end to end.
  *
- *   POST /plans          brief in, workbook URL out
+ *   POST /plans          structured brief in, workbook URL out
+ *   GET  /plans/generate CRM free-text brief in, workbook URL out
  *   GET  /plans/:id      a plan generated earlier
  *   GET  /plans          recent plans
  *
@@ -16,7 +17,9 @@
  */
 
 const express = require('express');
+const crypto = require('crypto');
 const { buildPlan } = require('../engine/build');
+const { reviewClientBrief, isConfigured: isBriefReviewConfigured } = require('../engine/brief-review');
 const { planWorkbookBuffer } = require('../render');
 const planStorage = require('../storage/appwrite');
 const { checkService } = require('../catalog/availability');
@@ -79,7 +82,8 @@ function readBrief(req) {
           .map((s) => s.trim())
           .filter(Boolean),
     remarks_for_media: pick('remarks_for_media', 'remarksForMedia', 'remarks') || null,
-    duration_months: Number(pick('duration_months', 'months')) || undefined
+    duration_months: Number(pick('duration_months', 'months')) || undefined,
+    client_brief: pick('client_brief', 'clientBrief') || null
   };
 }
 
@@ -90,9 +94,54 @@ function parseBudget(value) {
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
-// POST /plans - the whole flow.
-router.post('/', wrap(async (req, res) => {
-  const brief = readBrief(req);
+function firstQueryValue(value) {
+  const selected = Array.isArray(value) ? value[value.length - 1] : value;
+  return typeof selected === 'string' ? selected.trim() : '';
+}
+
+function publicBaseUrl(req) {
+  const configured = String(process.env.PUBLIC_BASE_URL || '').trim().replace(/\/$/, '');
+  return configured || `${req.protocol}://${req.get('host')}`;
+}
+
+/** The CRM endpoint can spend model tokens and create files, so it is never public. */
+function authorizeCrm(req, res) {
+  const expected = String(process.env.CRM_API_KEY || '');
+  if (!expected) {
+    res.status(503).json({
+      status: 'error',
+      code: 'crm_not_configured',
+      message: 'CRM_API_KEY is not configured on the plan generator.'
+    });
+    return false;
+  }
+
+  const authorization = String(req.get('authorization') || '');
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || '';
+  const supplied = bearer || String(req.get('x-api-key') || '');
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied);
+  const matches =
+    expectedBuffer.length === suppliedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, suppliedBuffer);
+
+  if (!matches) {
+    res.status(401).json({
+      status: 'error',
+      code: 'unauthorized',
+      message: 'A valid CRM API key is required.'
+    });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Shared plan transaction used by the structured POST API and the CRM GET API.
+ * The caller supplies a normalized brief; this function validates the service,
+ * persists the audit trail, builds the workbook, uploads it, and replies.
+ */
+async function generatePlan(req, res, brief, options = {}) {
   const errors = [];
 
   if (!brief.deal_id) errors.push({ field: 'deal_id', message: 'Deal ID is required' });
@@ -109,7 +158,7 @@ router.post('/', wrap(async (req, res) => {
     });
   }
 
-  if (errors.length) return res.status(400).json({ status: 'error', errors });
+  if (errors.length) return res.status(400).json({ status: 'error', code: 'invalid_brief', errors });
 
   brief.service = media.name;
 
@@ -122,7 +171,8 @@ router.post('/', wrap(async (req, res) => {
         `${media.name} plans are coming soon. The rate card for this medium is not in the ` +
         'catalog yet, so a plan cannot be generated.',
       detail: availability.detail || null,
-      service: media.name
+      service: media.name,
+      ...(options.response || {})
     });
   }
 
@@ -143,7 +193,7 @@ router.post('/', wrap(async (req, res) => {
       brief.target_audience,
       brief.target_locations,
       brief.remarks_for_media,
-      JSON.stringify(brief)
+      JSON.stringify(options.raw || brief)
     ]
   );
 
@@ -154,7 +204,8 @@ router.post('/', wrap(async (req, res) => {
   const planId = planRow.id;
 
   try {
-    const built = await buildPlan(brief, { strategy: req.query.strategy });
+    const strategy = options.strategy === undefined ? req.query.strategy : options.strategy;
+    const built = await buildPlan(brief, { strategy });
 
     if (!built.plan) {
       await query(
@@ -166,7 +217,8 @@ router.post('/', wrap(async (req, res) => {
         plan_id: planId,
         message: built.flags[0]?.message || 'No plan could be built from this brief.',
         flags: built.flags,
-        notes: built.notes
+        notes: built.notes,
+        ...(options.response || {})
       });
     }
 
@@ -177,7 +229,7 @@ router.post('/', wrap(async (req, res) => {
 
     // The URL handed out is this API's, not Appwrite's. Appwrite's needs the
     // server key; ours serves the file and keeps the bucket private.
-    const downloadUrl = `${req.protocol}://${req.get('host')}/plans/${planId}/download`;
+    const downloadUrl = `${publicBaseUrl(req)}/plans/${planId}/download`;
 
     await query(
       `update app.plans
@@ -200,7 +252,7 @@ router.post('/', wrap(async (req, res) => {
       ]
     );
 
-    return res.status(201).json({
+    return res.status(options.successStatus || 201).json({
       status: built.status,
       plan_id: planId,
       deal_id: brief.deal_id,
@@ -227,7 +279,8 @@ router.post('/', wrap(async (req, res) => {
       flags: built.flags,
       desk_actions: built.plan.desk_actions,
       notes: built.notes,
-      trace: built.trace
+      trace: built.trace,
+      ...(options.response || {})
     });
   } catch (error) {
     await query(
@@ -236,6 +289,182 @@ router.post('/', wrap(async (req, res) => {
     );
     throw error;
   }
+}
+
+/**
+ * GET requests are commonly retried by CRMs and proxies. Reuse the workbook
+ * for the exact same deal, service, and brief so a retry does not spend tokens
+ * or create duplicate plans. `force=true` is the explicit regeneration path.
+ */
+async function reusableCrmPlan(dealId, service, clientBrief) {
+  return one(
+    `select p.id, p.status, p.plan, p.flags, p.grand_total, p.file_name,
+            p.model, p.created_at, p.completed_at,
+            b.company, b.budget, b.raw
+       from app.plans p
+       join app.briefs b on b.id = p.brief_id
+      where b.deal_id = $1
+        and b.service = $2
+        and b.raw ->> 'source' = 'crm_get'
+        and b.raw ->> 'client_brief' = $3
+        and p.status in ('ready', 'blocked')
+        and p.file_id is not null
+      order by p.id desc
+      limit 1`,
+    [dealId, service, clientBrief]
+  );
+}
+
+// GET /plans/generate - CRM compatibility API: three query parameters in, link out.
+router.get('/generate', wrap(async (req, res) => {
+  if (!authorizeCrm(req, res)) return;
+
+  const dealId = firstQueryValue(req.query.deal_id);
+  const service = firstQueryValue(req.query.service);
+  const clientBrief = firstQueryValue(req.query.client_brief);
+  const errors = [];
+
+  if (!dealId) errors.push({ field: 'deal_id', message: 'Deal ID is required' });
+  if (!service) errors.push({ field: 'service', message: 'Service (media) is required' });
+  if (!clientBrief) errors.push({ field: 'client_brief', message: 'Client brief is required' });
+  if (dealId.length > 200) errors.push({ field: 'deal_id', message: 'Deal ID is too long (maximum 200 characters)' });
+  if (service.length > 200) errors.push({ field: 'service', message: 'Service is too long (maximum 200 characters)' });
+  if (clientBrief.length > 12000) {
+    errors.push({ field: 'client_brief', message: 'Client brief is too long (maximum 12,000 characters)' });
+  }
+  if (errors.length) return res.status(400).json({ status: 'error', code: 'invalid_request', errors });
+
+  const media = MEDIA_LOOKUP.get(service.toLowerCase());
+  if (!media) {
+    return res.status(400).json({
+      status: 'error',
+      code: 'invalid_service',
+      errors: [{
+        field: 'service',
+        message: `Unknown service (media) "${service}"`,
+        allowed: [...new Set([...MEDIA_LOOKUP.values()].map((item) => item.name))]
+      }]
+    });
+  }
+
+  const force = ['1', 'true', 'yes'].includes(firstQueryValue(req.query.force).toLowerCase());
+  if (!force) {
+    const existing = await reusableCrmPlan(dealId, media.name, clientBrief);
+    if (existing) {
+      const raw = existing.raw || {};
+      return res.status(200).json({
+        status: existing.status,
+        reused: true,
+        plan_id: existing.id,
+        deal_id: dealId,
+        company: existing.company,
+        service: media.name,
+        download_url: `${publicBaseUrl(req)}/plans/${existing.id}/download`,
+        file_name: existing.file_name,
+        totals: existing.plan?.totals || { total: Number(existing.grand_total) },
+        budget: Number(existing.budget),
+        strategy: existing.plan?.strategy || existing.model,
+        flags: existing.flags || [],
+        created_at: existing.created_at,
+        completed_at: existing.completed_at,
+        brief_review: {
+          status: 'accepted',
+          model: raw.ai_review?.model || null,
+          missing_fields: [],
+          service_conflict: false,
+          service_conflict_reason: null,
+          warnings: raw.ai_review?.warnings || [],
+          extracted: raw.extracted || null
+        }
+      });
+    }
+  }
+
+  if (!isBriefReviewConfigured()) {
+    return res.status(503).json({
+      status: 'error',
+      code: 'openai_not_configured',
+      message: 'OPENAI_API_KEY is required for CRM client brief review.'
+    });
+  }
+
+  let review;
+  try {
+    review = await reviewClientBrief(clientBrief, { service: media.name });
+  } catch (error) {
+    if (!error.status) error.status = 502;
+    if (!error.code) error.code = 'brief_review_failed';
+    throw error;
+  }
+
+  const reviewResponse = {
+    brief_review: {
+      status: review.missing_fields.length ? 'incomplete' : 'accepted',
+      model: review.model,
+      missing_fields: review.missing_fields,
+      service_conflict: review.service_conflict,
+      service_conflict_reason: review.service_conflict_reason,
+      warnings: review.warnings,
+      extracted: review.brief
+    }
+  };
+
+  if (review.missing_fields.length) {
+    return res.status(422).json({
+      status: 'incomplete_brief',
+      code: 'missing_brief_details',
+      message: `The client brief must state: ${review.missing_fields.join(', ')}.`,
+      deal_id: dealId,
+      service,
+      ...reviewResponse
+    });
+  }
+
+  if (review.service_conflict) {
+    return res.status(422).json({
+      status: 'incomplete_brief',
+      code: 'service_mismatch',
+      message:
+        review.service_conflict_reason ||
+        `The client brief conflicts with the requested service "${media.name}".`,
+      deal_id: dealId,
+      service: media.name,
+      ...reviewResponse
+    });
+  }
+
+  const brief = {
+    deal_id: dealId,
+    service: media.name,
+    client_brief: clientBrief,
+    ...review.brief
+  };
+
+  return generatePlan(req, res, brief, {
+    successStatus: 200,
+    strategy: 'model',
+    response: reviewResponse,
+    raw: {
+      source: 'crm_get',
+      deal_id: dealId,
+      service,
+      client_brief: clientBrief,
+      extracted: review.brief,
+      ai_review: {
+        model: review.model,
+        service_conflict: review.service_conflict,
+        service_conflict_reason: review.service_conflict_reason,
+        warnings: review.warnings,
+        usage: review.usage
+      }
+    }
+  });
+}));
+
+// POST /plans - structured brief API.
+router.post('/', wrap(async (req, res) => {
+  const brief = readBrief(req);
+  return generatePlan(req, res, brief);
 }));
 
 /*

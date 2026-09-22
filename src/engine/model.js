@@ -259,7 +259,11 @@ async function selectWithModel(brief, prefetch, options = {}) {
             objective: brief.campaign_objective,
             audience: brief.target_audience,
             locations: brief.target_locations,
-            remarks: brief.remarks_for_media
+            remarks: brief.remarks_for_media,
+            // The CRM route keeps the original wording as well as the extracted
+            // fields so unusual constraints are not lost between the two model
+            // stages. The structured fields above remain the planning contract.
+            client_brief: brief.client_brief || null
           },
           catalog_notes: prefetch.notes,
           shortlist: prefetch.candidates.map(compactProduct)
