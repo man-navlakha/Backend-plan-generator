@@ -13,8 +13,18 @@
  */
 
 const { Pool } = require('pg');
+const log = require('./log');
 
 let pool = null;
+const SLOW_QUERY_MS = Math.max(1, Number(process.env.DB_SLOW_QUERY_MS || 750));
+
+function queryMetadata(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  const operation = normalized.match(/^([a-z]+)/i)?.[1]?.toUpperCase() || 'UNKNOWN';
+  const target = normalized.match(/\b(?:from|into|update|join|table)\s+([a-z0-9_."]+)/i)?.[1]
+    ?.replace(/"/g, '') || undefined;
+  return { operation, target };
+}
 
 function isConfigured() {
   return Boolean(process.env.DB_URL);
@@ -25,6 +35,10 @@ function getPool() {
     throw new Error('DB_URL is not set. Copy .env.example to .env and fill it in.');
   }
   if (!pool) {
+    log.info('postgres.pool.creating', {
+      pool_max: Number(process.env.DB_POOL_MAX || 5),
+      connection_timeout_ms: 15_000
+    });
     pool = new Pool({
       connectionString: process.env.DB_URL,
       max: Number(process.env.DB_POOL_MAX || 5),
@@ -36,15 +50,37 @@ function getPool() {
     });
     // An idle client erroring out must not take the process down with it.
     pool.on('error', (err) => {
-      console.error('[pg] idle client error:', err.message);
+      log.error('postgres.pool.idle_client_error', { error: log.errorDetails(err) });
     });
   }
   return pool;
 }
 
 /** `query('select * from masters.products where id = $1', [id])` */
-function query(text, params) {
-  return getPool().query(text, params);
+async function query(text, params) {
+  const started = Date.now();
+  const metadata = queryMetadata(text);
+  try {
+    const result = await getPool().query(text, params);
+    const duration = Date.now() - started;
+    const fields = {
+      ...metadata,
+      parameter_count: Array.isArray(params) ? params.length : 0,
+      row_count: result.rowCount,
+      duration_ms: duration
+    };
+    if (duration >= SLOW_QUERY_MS) log.warn('postgres.query.slow', fields);
+    else if (process.env.LOG_DB_QUERIES === '1') log.debug('postgres.query.completed', fields);
+    return result;
+  } catch (error) {
+    log.error('postgres.query.failed', {
+      ...metadata,
+      parameter_count: Array.isArray(params) ? params.length : 0,
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
+    throw error;
+  }
 }
 
 /** Rows only, for the common case. */
@@ -64,18 +100,28 @@ async function one(text, params) {
  * The client is always released, including when the rollback itself fails.
  */
 async function transaction(fn) {
+  const started = Date.now();
   const client = await getPool().connect();
   try {
+    log.debug('postgres.transaction.started');
     await client.query('BEGIN');
     const result = await fn(client);
     await client.query('COMMIT');
+    log.debug('postgres.transaction.completed', { duration_ms: Date.now() - started });
     return result;
   } catch (error) {
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('[pg] rollback failed:', rollbackError.message);
+      log.error('postgres.transaction.rollback_failed', {
+        duration_ms: Date.now() - started,
+        error: log.errorDetails(rollbackError)
+      });
     }
+    log.error('postgres.transaction.failed', {
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
     throw error;
   } finally {
     client.release();
@@ -92,7 +138,8 @@ async function close() {
   if (pool) {
     await pool.end();
     pool = null;
+    log.info('postgres.pool.closed');
   }
 }
 
-module.exports = { getPool, query, rows, one, transaction, ping, close, isConfigured };
+module.exports = { getPool, query, rows, one, transaction, ping, close, isConfigured, queryMetadata };

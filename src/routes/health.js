@@ -5,6 +5,7 @@ const { db: cinemaDb } = require('../cinema-db');
 const { db: otherMastersDb } = require('../other-masters-db');
 const planStorage = require('../storage/appwrite');
 const pg = require('../pg');
+const log = require('../log');
 
 const router = express.Router();
 const startedAt = Date.now();
@@ -20,6 +21,7 @@ router.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',
     environment: process.env.NODE_ENV || 'development',
+    logging: log.status(),
     memory: {
       rssMb: +(memory.rss / 1024 / 1024).toFixed(2),
       heapUsedMb: +(memory.heapUsed / 1024 / 1024).toFixed(2),
@@ -64,6 +66,14 @@ router.get('/ready', async (req, res) => {
     (c) => !['up', 'not_configured', 'not_built'].includes(c.status)
   );
   const status = failed.length === 0 ? 'ready' : 'not_ready';
+
+  if (failed.length) {
+    log.error('health.readiness.failed', {
+      failed_checks: Object.entries(checks)
+        .filter(([, check]) => !['up', 'not_configured', 'not_built'].includes(check.status))
+        .map(([name, check]) => ({ name, status: check.status, error: check.error }))
+    });
+  }
 
   res.status(failed.length === 0 ? 200 : 503).json({
     status,

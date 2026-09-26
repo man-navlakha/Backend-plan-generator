@@ -17,6 +17,7 @@
 
 const { Client, Storage, ID } = require('node-appwrite');
 const { InputFile } = require('node-appwrite/file');
+const log = require('../log');
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -105,6 +106,15 @@ async function uploadPlan(buffer, options = {}) {
   const { storage: service, bucketId, endpoint, projectId } = storage();
   const name = options.filename || planFileName(options.plan);
   const fileId = options.fileId || ID.unique();
+  const started = Date.now();
+
+  log.info('storage.upload.started', {
+    provider: 'appwrite',
+    bucket_id: bucketId,
+    file_id: fileId,
+    file_name: name,
+    bytes: buffer.length
+  });
 
   let file;
   try {
@@ -116,6 +126,14 @@ async function uploadPlan(buffer, options = {}) {
       ...(options.folder ? { folder: options.folder } : {})
     });
   } catch (error) {
+    log.error('storage.upload.failed', {
+      provider: 'appwrite',
+      bucket_id: bucketId,
+      file_id: fileId,
+      file_name: name,
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
     // AppwriteException carries the useful part in `type` and `code`; the bare
     // message alone ("Storage bucket with the requested ID could not be found")
     // loses which bucket and which project were asked for.
@@ -127,6 +145,14 @@ async function uploadPlan(buffer, options = {}) {
   }
 
   const base = `${endpoint.replace(/\/$/, '')}/storage/buckets/${bucketId}/files/${file.$id}`;
+  log.info('storage.upload.completed', {
+    provider: 'appwrite',
+    bucket_id: bucketId,
+    file_id: file.$id,
+    file_name: file.name,
+    bytes: file.sizeOriginal,
+    duration_ms: Date.now() - started
+  });
   return {
     fileId: file.$id,
     bucketId,
@@ -156,23 +182,59 @@ async function uploadPlan(buffer, options = {}) {
 async function downloadPlan(fileId) {
   const { bucketId, endpoint, projectId, apiKey } = storage();
   const url = `${endpoint.replace(/\/$/, '')}/storage/buckets/${bucketId}/files/${fileId}/download`;
+  const started = Date.now();
 
-  const response = await fetch(url, {
-    headers: {
-      'X-Appwrite-Project': projectId,
-      'X-Appwrite-Key': apiKey,
-      'X-Appwrite-Response-Format': '1.4.0'
-    }
+  log.info('storage.download.started', {
+    provider: 'appwrite',
+    bucket_id: bucketId,
+    file_id: fileId
   });
+
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        'X-Appwrite-Project': projectId,
+        'X-Appwrite-Key': apiKey,
+        'X-Appwrite-Response-Format': '1.4.0'
+      }
+    });
+  } catch (error) {
+    log.error('storage.download.failed', {
+      provider: 'appwrite',
+      bucket_id: bucketId,
+      file_id: fileId,
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
+    throw error;
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    throw new Error(
+    const error = new Error(
       `Appwrite download failed for file "${fileId}" (HTTP ${response.status}): ${body.slice(0, 200)}`
     );
+    log.error('storage.download.failed', {
+      provider: 'appwrite',
+      bucket_id: bucketId,
+      file_id: fileId,
+      http_status: response.status,
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
+    throw error;
   }
 
-  return Buffer.from(await response.arrayBuffer());
+  const buffer = Buffer.from(await response.arrayBuffer());
+  log.info('storage.download.completed', {
+    provider: 'appwrite',
+    bucket_id: bucketId,
+    file_id: fileId,
+    bytes: buffer.length,
+    duration_ms: Date.now() - started
+  });
+  return buffer;
 }
 
 /**

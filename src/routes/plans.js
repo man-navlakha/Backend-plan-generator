@@ -242,6 +242,12 @@ async function generatePlan(req, res, brief, options = {}) {
   const strategy = options.strategy === undefined ? req.query.strategy : options.strategy;
   let stage = 'build';
 
+  log.addContext({
+    plan_id: planId,
+    deal_id: brief.deal_id,
+    service: brief.service
+  });
+
   log.info('plan.generation.started', {
     request_id: req.requestId,
     plan_id: planId,
@@ -269,6 +275,7 @@ async function generatePlan(req, res, brief, options = {}) {
       })),
       flag_count: (built.flags || []).length,
       total: built.plan?.totals?.total ?? null,
+      trace: built.trace,
       duration_ms: Date.now() - started
     });
 
@@ -529,6 +536,8 @@ router.get('/generate', wrap(async (req, res) => {
       deal_id: dealId,
       service: media.name,
       model: review.model,
+      prompt_tokens: review.usage?.prompt_tokens || 0,
+      completion_tokens: review.usage?.completion_tokens || 0,
       missing_field_count: review.missing_fields.length,
       service_conflict: review.service_conflict,
       warning_count: review.warnings.length

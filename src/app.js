@@ -63,22 +63,38 @@ app.use((req, res, next) => {
   req.requestId = log.requestId(req.get('x-request-id'));
   res.setHeader('X-Request-Id', req.requestId);
 
-  log.info('http.request.started', {
-    request_id: req.requestId,
-    method,
-    path: requestPath
-  });
+  log.withContext({ request_id: req.requestId }, () => {
+    log.info('http.request.started', { method, path: requestPath });
 
-  res.once('finish', () => {
-    log.info('http.request.completed', {
-      request_id: req.requestId,
-      method,
-      path: requestPath,
-      status: res.statusCode,
-      duration_ms: Date.now() - started
+    let completed = false;
+    res.once('finish', () => {
+      completed = true;
+      const fields = {
+        method,
+        path: requestPath,
+        status: res.statusCode,
+        duration_ms: Date.now() - started,
+        response_bytes: Number(res.getHeader('content-length')) || undefined
+      };
+      if (res.statusCode >= 500) log.error('http.request.completed', fields);
+      else if (res.statusCode >= 400) log.warn('http.request.completed', fields);
+      else log.info('http.request.completed', fields);
+      void log.flush();
     });
+
+    res.once('close', () => {
+      if (!completed) {
+        log.warn('http.request.aborted', {
+          method,
+          path: requestPath,
+          status: res.statusCode,
+          duration_ms: Date.now() - started
+        });
+        void log.flush();
+      }
+    });
+    next();
   });
-  next();
 });
 
 app.use('/health', healthRouter);

@@ -14,8 +14,9 @@
 
 const { chooseRate, quantityFloor, unitsForBudget, costLine } = require('./cost');
 const { isInventory } = require('./mode');
-const { selectWithModel } = require('./model');
+const { selectWithModel, MODEL } = require('./model');
 const { loadRules } = require('../rules');
+const log = require('../log');
 
 // How the budget is split when a brief covers several media. Front-loading the
 // first medium reflects how the desk actually buys: one medium carries the
@@ -441,12 +442,19 @@ async function selectLines(brief, prefetch, options = {}) {
   }
 
   if (options.strategy === 'deterministic' || !isModelConfigured()) {
+    const started = Date.now();
     const result = selectWithoutModel(brief, prefetch);
     if (!isModelConfigured() && options.strategy !== 'deterministic') {
       result.reasoning.unshift(
         'OPENAI_API_KEY is not set, so the deterministic selector ran instead of the model.'
       );
     }
+    log.info('selection.deterministic.completed', {
+      strategy: result.strategy,
+      candidate_count: prefetch.candidates.length,
+      selection_count: result.selections.length,
+      duration_ms: Date.now() - started
+    });
     return result;
   }
 
@@ -455,10 +463,27 @@ async function selectLines(brief, prefetch, options = {}) {
    * than failing the request: a plan built by the simpler strategy is worth far
    * more to the desk than a 500, and the fallback is recorded so nobody mistakes
    * one for the other.
-   */
+  */
+  const started = Date.now();
+  log.info('selection.model.started', {
+    model: MODEL,
+    candidate_count: prefetch.candidates.length,
+    inventory_mode: isInventory(brief)
+  });
   try {
     const result = await selectWithModel(brief, prefetch, options);
     const checked = validateSelections(result.selections, prefetch);
+
+    log.info('selection.model.completed', {
+      model: result.model || MODEL,
+      proposed_count: result.selections.length,
+      valid_count: checked.valid.length,
+      rejected_count: checked.rejected.length,
+      tool_call_count: (result.tool_calls || []).length,
+      prompt_tokens: result.usage?.prompt_tokens || 0,
+      completion_tokens: result.usage?.completion_tokens || 0,
+      duration_ms: Date.now() - started
+    });
 
     if (checked.rejected.length) {
       result.reasoning.push(
@@ -473,6 +498,10 @@ async function selectLines(brief, prefetch, options = {}) {
       );
       fallback.strategy = 'deterministic_after_model';
       fallback.model_output = result;
+      log.warn('selection.model.fallback', {
+        reason: 'no_usable_selections',
+        fallback_selection_count: fallback.selections.length
+      });
       return fallback;
     }
 
@@ -487,12 +516,20 @@ async function selectLines(brief, prefetch, options = {}) {
 
     return { ...result, selections: checked.valid };
   } catch (error) {
-    console.error('[select] model selection failed:', error.message);
+    log.error('selection.model.failed', {
+      model: MODEL,
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
     const fallback = selectWithoutModel(brief, prefetch);
     fallback.reasoning.unshift(
       `Model selection failed (${error.message}); the deterministic selector ran instead.`
     );
     fallback.strategy = 'deterministic_after_error';
+    log.warn('selection.model.fallback', {
+      reason: 'model_error',
+      fallback_selection_count: fallback.selections.length
+    });
     return fallback;
   }
 }

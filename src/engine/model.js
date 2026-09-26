@@ -20,6 +20,7 @@
 const OpenAI = require('openai');
 const { searchProducts, getPriceOptions, citiesForMedia } = require('../catalog/search');
 const { isInventory } = require('./mode');
+const log = require('../log');
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-5-mini';
 const MAX_TOOL_ROUNDS = Number(process.env.PLAN_MAX_TOOL_ROUNDS || 6);
@@ -370,6 +371,14 @@ async function selectWithModel(brief, prefetch, options = {}) {
     messages.push(message);
 
     const calls = message.tool_calls || [];
+    log.debug('selection.model.round.completed', {
+      model: MODEL,
+      round: round + 1,
+      final_round: isFinalRound,
+      tool_call_count: calls.length,
+      prompt_tokens: response.usage?.prompt_tokens || 0,
+      completion_tokens: response.usage?.completion_tokens || 0
+    });
     if (calls.length === 0) {
       const parsed = JSON.parse(message.content || '{}');
       return {
@@ -400,6 +409,16 @@ async function selectWithModel(brief, prefetch, options = {}) {
         duration_ms: Date.now() - started,
         error: result?.error || null
       });
+      const toolFields = {
+        model: MODEL,
+        round: round + 1,
+        tool: call.function.name,
+        rows_returned: result?.count ?? null,
+        duration_ms: Date.now() - started,
+        error: result?.error || undefined
+      };
+      if (result?.error) log.warn('selection.model.tool.failed', toolFields);
+      else log.info('selection.model.tool.completed', toolFields);
       messages.push({
         role: 'tool',
         tool_call_id: call.id,

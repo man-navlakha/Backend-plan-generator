@@ -15,6 +15,7 @@
 const { rows } = require('../pg');
 const pg = require('../pg');
 const { catalogSlugsFor, absenceReason } = require('./media-map');
+const log = require('../log');
 
 // Long enough that a burst of briefs costs one query, short enough that a
 // re-import shows up without a redeploy.
@@ -63,9 +64,10 @@ async function getAvailability({ force = false } = {}) {
   try {
     const map = await loadAvailability();
     cache = { at: Date.now(), map };
+    log.debug('catalog.availability.loaded', { media_count: map.size });
     return map;
   } catch (error) {
-    console.error('[availability] lookup failed:', error.message);
+    log.error('catalog.availability.failed', { error: log.errorDetails(error) });
     return cache?.map ?? null;
   }
 }
