@@ -7,7 +7,7 @@
     "api/index.js": {
       "maxDuration": 300,
       "memory": 1024,
-      "includeFiles": "{src/data/cinema.db,src/assets/Masters/Cinema/Images/**}"
+      "includeFiles": "src/assets/Masters/Cinema/Images/**"
     }
   },
 

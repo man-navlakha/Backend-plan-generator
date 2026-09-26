@@ -9,7 +9,7 @@
     "start": "node src/server.js",
     "start:local": "node --env-file=.env src/server.js",
     "dev": "node --env-file=.env --watch src/server.js",
-    "vercel-build": "node scripts/import-cinema-legacy-sqlite.js",
+    "vercel-build": "npm run rules:validate",
     "db:import": "node scripts/import-transit-master.js",
     "db:audit": "node scripts/audit-transit.js",
     "db:import:radio": "node scripts/import-radio-master.js",
