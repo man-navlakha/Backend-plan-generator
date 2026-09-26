@@ -55,7 +55,9 @@ function initializeSchema() {
       suggested_value TEXT, message TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_other_products_catalog ON products(catalog_slug,sku);
+    CREATE INDEX IF NOT EXISTS idx_other_products_source ON products(catalog_slug,source_row);
     CREATE INDEX IF NOT EXISTS idx_other_rows_catalog_sheet ON related_rows(catalog_slug,sheet);
+    CREATE INDEX IF NOT EXISTS idx_other_rows_source ON related_rows(catalog_slug,sheet,source_row);
     CREATE INDEX IF NOT EXISTS idx_other_rows_product ON related_rows(product_id,sheet);
     CREATE INDEX IF NOT EXISTS idx_other_rows_option ON related_rows(option_id,sheet);
     CREATE INDEX IF NOT EXISTS idx_other_issues_catalog ON data_quality_issues(catalog_slug,code);

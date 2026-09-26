@@ -20,6 +20,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Excel's lock file for an open workbook (~$cinema.xlsx). Editing a master
+# creates one next to it; it is a few bytes of session state and never source.
+~$*
+
 # Generated catalog (rebuild with npm run db:import)
 src/data/*.db
 

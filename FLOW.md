@@ -37,7 +37,7 @@ CRM
 Authenticate CRM request
   ▼
 OpenAI reviews the free-text brief and extracts company, budget, objective,
-audience, locations, duration, constraints, and warnings
+audience, locations, campaign duration, creative duration, constraints, and warnings
   │
   ├── required detail missing or service conflict ──▶ 422 incomplete_brief
   │                                                   (no plan is created)
@@ -94,6 +94,9 @@ Objective, audience, locations, duration, dates, preferences, and constraints ar
 should be included whenever known. The AI extractor does not invent required information. If the
 query says `service=Radio` but the brief explicitly asks for bus branding, the API returns a service
 mismatch instead of creating a plan for the wrong medium.
+
+For Cinema, the brief can state an ad-film or slide length such as `15-second A/V`. It is extracted
+as `creative_duration_seconds`; when absent, the approved Cinema rule defaults it to 10 seconds.
 
 An explicit budget range is supported. For `₹5–7 Lakhs`, the extracted values are
 `budget_min: 500000`, `budget_max: 700000`, and `budget: 700000`. The upper end becomes the planning
@@ -351,10 +354,11 @@ Identical flags are collapsed: one rule firing on five lines is one problem, sho
 
 [src/render/index.js](src/render/index.js) · [src/assets/formats/](src/assets/formats/)
 
-Column layouts come from each medium's `format.json`. Three sheets per medium:
+Column layouts come from each medium's `format.json`. The generated workbook contains:
 
 | Sheet | Contents |
 |---|---|
+| `Summary` | Budget, media cost, taxable charges, GST, total, and balance |
 | `<Medium>` | The rate card the client reads |
 | `T&C - <Medium>` | Terms |
 | `Notes (Internal)` | Flags, the model's reasoning, what the desk must check |
@@ -363,6 +367,62 @@ The plan object the renderer consumes is the same shape
 [scripts/render-demo-plan.js](scripts/render-demo-plan.js) builds by hand. That fixture was written
 before the engine existed so the renderer would not have to change when the engine arrived — and it
 did not.
+
+#### Cinema format and billing contract
+
+`Cinema PAN India 07-04-2025 old.xlsx` is the approved visual and commercial reference
+for generated Cinema sheets. The source file is a 26-state inventory workbook, so the generator
+does not copy every inventory row into a client plan. It reproduces the selected-plan structure:
+
+- Columns **B:R**, with the same 17 headings, widths, row heights, maroon bands, centered logo,
+  borders, rupee formats, and six-row cost footer.
+- A 10-second A/V creative by default. An explicitly stated creative length overrides the default;
+  the model cannot lengthen the creative merely to spend more budget.
+- Catalog Cinema rates remain **per week per second**. The displayed weekly amount is the effective
+  rate for the chosen creative length, and `duration_weeks` is the multiplier.
+- One **₹5,000 Making & Conversion Cost per Creative** charge is added by default, then 18% GST is
+  applied to media plus conversion. The charge is present in both API totals and workbook totals.
+- The supplied workbook contains stale `Total Screens : 58` labels and broken `#REF!` formulas on
+  several state sheets. Those cells are not copied. Generated formulas use the selected screen
+  count and server-calculated amounts, with cached values for preview tools that do not recalculate.
+
+The current PostgreSQL Cinema catalog remains the source of inventory and rates for a `Cinema`
+brief. The supplied workbook controls plan presentation and billing conventions; it does not
+replace verified catalog rows with the old workbook's full inventory.
+
+##### The cards as inventory: the `cinema` catalog
+
+Both PAN-India cards are loaded as inventory in their own right, combined into one
+catalog `cinema` under `media_type = 'cinema'`
+([scripts/import-cinema-master.js](scripts/import-cinema-master.js)) — the 2025
+card's 10,118 screens plus 10,547 from `Cinema_PAN_India_From_CSVs.xlsx`. This is what
+makes them usable when a brief arrives rather than only when a sheet is formatted.
+
+This is the only Cinema planning catalog. `catalogSlugsFor('Cinema')` returns `['cinema']`, and
+every imported product uses that same media type. The 2025 card contributes 3,993 UFO and 5
+Khushi screens that no other source carries, and the 2026 card adds eight states.
+
+Three things about it are worth knowing before touching it:
+
+- **Nothing is dropped.** Every row of both workbooks is stored, complete or not, and each blank
+  field becomes a row in `masters.data_quality_issues`. That register is the worklist: fill the
+  workbook, re-import, and what was fixed disappears. The 2026 card alone arrives missing 6,107
+  localities, 5,068 audi types and 3,286 pincodes.
+- **Overlapping screens are linked, not merged.** 4,397 links on screen code (unique in each
+  workbook, same state). Blanks are filled across the link — only blanks, 5,617 of them, each
+  recorded in `attrs.filled_from`. The newer row stays quotable; the older one is kept at
+  `status = 0`, which every search already filters on. 4,376 of those links disagree on the rate,
+  and the loser is preserved in `attrs.other_source_rate_10s_week` rather than discarded.
+- **The rate basis is the trap.** Both columns are a price for **ten** seconds for one week, while
+  the engine multiplies `rate x seconds x weeks` and the `cinema` master stores a **per-second**
+  weekly rate. The importer stores `column / 10` and keeps the printed figure in
+  `attrs.rate_10s_week`; the renderer's `cinema_weekly_rate` resolver multiplies back up to it
+  exactly. Storing the column as printed would overcharge by 10x silently. Note also that the
+  2026 card's column says "A/V Slide" but carries **Ad Film** rates (99.5% verified against the
+  source CSVs), so those rows are labelled as such.
+
+[db/CINEMA_DATABASE.md](db/CINEMA_DATABASE.md) has the full account, and
+`npm run db:export:cinema` writes the whole thing to a portable SQLite file.
 
 ### 6. Upload — and why the URL is ours
 
@@ -522,10 +582,12 @@ inventory, which is worse than saying "not yet".
 
 ## Known gaps
 
-**Cinema plans are unreliable.** Cinema sells *per week per second*, so `qty` is seconds and `months`
-is weeks. The model is inconsistent about this — two runs of the same brief gave 93% and 24% budget
-use. The underspend flag catches it, so nothing wrong ships silently, but the prompt needs
-per-unit-pricing guidance before cinema is trusted.
+**Cinema has an unusual billing unit.** Cinema sells *per week per second*: `qty` is ad seconds and
+the legacy `months` selection field is the billing-period multiplier. CRM extraction preserves
+`duration_weeks` and an explicitly stated `creative_duration_seconds`; the server enforces both and
+defaults the creative to 10 seconds. A plan more than 30 percent under budget is blocked rather than
+reported ready. Cinema workbooks always include a Summary sheet and carry venue attributes from the
+catalog into the client rate-card columns.
 
 **12 media have no rate card.** Outdoor (no master imported), Newspaper (products but no rates),
 Dealer Board, Wall Painting, and the per-platform digital media. `GET /brief/media-types` lists them
@@ -554,7 +616,8 @@ npm run db:migrate      # load SQLite masters into Postgres
 npm run db:smoke:pg     # 13 checks on the loaded data
 npm run catalog:try     # search + prefetch against seven sample briefs
 npm test                # brief-review and CRM route contract tests
-npm run dev             # server with --watch
+npm run start:local     # local server; loads .env automatically
+npm run dev             # local watch server; loads .env automatically
 ```
 
 ## Environment

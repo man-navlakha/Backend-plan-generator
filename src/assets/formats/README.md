@@ -105,6 +105,12 @@ Edit `format.json` — rename a column, reorder, drop one — and the next plan
 comes out that way. Nothing in `src/render/` needs touching; a field the plan
 line does not carry renders as an empty cell rather than an error.
 
+Cinema is the deliberate exception because its approved PAN-India workbook uses a different sheet
+geometry from the normal house template: content starts in column B, the logo occupies rows 5-9,
+the title/header are rows 13/14, and a six-row calculated footer follows the selected screens. Its
+columns and source are still declared in `cinema/cinema/format.json`; the matching layout renderer
+is named `cinema_pan_india_2025`.
+
 The templates are the desk's workbooks, not generated artefacts. Re-cut a spec
 from its template when the desk sends a new version of the sheet; never
 overwrite the template from the spec, or the T&C, case study and sample rows go

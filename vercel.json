@@ -6,7 +6,11 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
-      "memory": 1024
+      "memory": 1024,
+      "includeFiles": [
+        "src/data/cinema.db",
+        "src/assets/Masters/Cinema/Images/**"
+      ]
     }
   },
 

@@ -27,6 +27,169 @@ const { catalogSlugsFor, absenceReason } = require('./media-map');
 // JSON each sits near 40k tokens -- large, but one call, and complete.
 const MAX_CANDIDATES = 60;
 const PER_COMBINATION = 12;
+const NATIONAL_MEDIA = new Set(['magazine']);
+const COUNTRY_NAMES = new Set(['india', 'bharat']);
+const CINEMA_CITY_ALIASES = new Map([
+  ['gurugram', ['Gurugram', 'Gurgaon']],
+  ['gurgaon', ['Gurgaon', 'Gurugram']]
+]);
+
+function catalogNameKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/^magazine\s+advertising\s+in\s+/, '')
+    .replace(/[\u2019']s\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function locationKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cinemaCityValues(city) {
+  const value = String(city || '').trim();
+  return CINEMA_CITY_ALIASES.get(locationKey(value)) || (value ? [value] : undefined);
+}
+
+function usefulCinemaValue(value) {
+  if (value === null || value === undefined || value === '') return false;
+  return !/^\s*(?:\[object object\]|https?:\/\/|www\.)/i.test(String(value));
+}
+
+function cinemaCompleteness(product) {
+  const attrs = product.attrs || {};
+  return [
+    attrs.screen_code,
+    product.locality || attrs.locality,
+    attrs.pincode,
+    attrs.theatre_type,
+    attrs.multiplex_name,
+    usefulCinemaValue(attrs.address) ? attrs.address : null,
+    attrs.audi_no,
+    attrs.audi_type,
+    attrs.cinema_chain,
+    attrs.seating_capacity
+  ].filter((value) => value !== null && value !== undefined && value !== '').length;
+}
+
+function cinemaAudiNumber(product) {
+  const stated = product.attrs?.audi_no;
+  if (stated !== null && stated !== undefined && stated !== '') return String(stated);
+  const match = /\baudi\s*(\d+)|\bscreen[-_\s]*(\d+)/i.exec(
+    `${product.name || ''} ${product.sku || ''}`
+  );
+  return match ? String(match[1] || match[2]) : '';
+}
+
+function cinemaVenueCore(product) {
+  return String(product.attrs?.multiplex_name || product.name || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(?:audi|screen)\s*\d+\b/g, ' ')
+    .replace(/\b(?:pvr|inox|cinepolis|miraj|cinemas?|superplex|multiplex|mall|gurgaon|gurugram|noida|haryana|ncr)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+function cinemaMarketKey(product) {
+  const city = locationKey(product.city).replace(/^gurgaon$/, 'gurugram');
+  return `${city}|${locationKey(product.state)}|${cinemaAudiNumber(product)}`;
+}
+
+function sameCinemaScreen(a, b) {
+  const aCode = locationKey(a.attrs?.screen_code);
+  const bCode = locationKey(b.attrs?.screen_code);
+  if (aCode && bCode && aCode === bCode) return true;
+  if (cinemaMarketKey(a) !== cinemaMarketKey(b)) return false;
+  const aVenue = cinemaVenueCore(a);
+  const bVenue = cinemaVenueCore(b);
+  if (!aVenue || !bVenue) return false;
+  return aVenue === bVenue ||
+    (Math.min(aVenue.length, bVenue.length) >= 7 && (aVenue.includes(bVenue) || bVenue.includes(aVenue)));
+}
+
+/** Prefer the most complete version of a physical audi and drop its sparse aliases. */
+function dedupeCinemaProducts(products) {
+  const ranked = [...(products || [])].sort((a, b) =>
+    cinemaCompleteness(b) - cinemaCompleteness(a) || Number(b.id) - Number(a.id)
+  );
+  const kept = [];
+  for (const product of ranked) {
+    if (!kept.some((candidate) => sameCinemaScreen(product, candidate))) kept.push(product);
+  }
+  return kept;
+}
+
+async function searchCinemaCatalog(params) {
+  return dedupeCinemaProducts(await searchProducts({
+    ...params,
+    city: cinemaCityValues(params.city),
+    mediaType: 'cinema'
+  }));
+}
+
+/**
+ * Resolve one CRM location against the city/state pairs carried by a medium.
+ *
+ * The brief reviewer commonly returns qualified names such as
+ * "Noida, Uttar Pradesh". The catalog stores those as two columns, so treating
+ * the whole string as either a city or a state rejects valid inventory. Keep
+ * exact city/state matching, then understand comma/bullet-qualified locations
+ * and verify that the requested city and state actually occur together.
+ */
+function matchRequestedLocation(name, available) {
+  const requested = String(name || '').trim();
+  const key = locationKey(requested);
+  if (!key) return { requested, city: null, state: null, match: 'none' };
+
+  const exactCities = available.filter((row) => row.city_key === key);
+  if (exactCities.length) {
+    const stateNames = [...new Set(exactCities.map((row) => row.state).filter(Boolean))];
+    return {
+      requested,
+      city: exactCities[0].city,
+      // Do not arbitrarily constrain a city that appears under multiple states
+      // in a dirty source catalog. A qualified request below is unambiguous.
+      state: stateNames.length === 1 ? stateNames[0] : null,
+      match: 'city'
+    };
+  }
+
+  const exactState = available.find((row) => row.state_key === key);
+  if (exactState) {
+    return { requested, city: null, state: exactState.state, match: 'state' };
+  }
+
+  const parts = requested
+    .split(/\s*[,\u00b7|]\s*/u)
+    .map(locationKey)
+    .filter(Boolean)
+    .filter((part, index, all) => !(index === all.length - 1 && COUNTRY_NAMES.has(part)));
+
+  if (parts.length >= 2) {
+    for (const row of available) {
+      if (parts.includes(row.city_key) && parts.includes(row.state_key)) {
+        return { requested, city: row.city, state: row.state, match: 'city' };
+      }
+    }
+  }
+
+  // Also accept the common unpunctuated form "Noida Uttar Pradesh" while
+  // still requiring an exact catalog city/state pair.
+  const flattened = key.replace(/\s*[,\u00b7|]\s*/gu, ' ');
+  const pair = available.find((row) =>
+    `${row.city_key} ${row.state_key}` === flattened ||
+    `${row.state_key} ${row.city_key}` === flattened
+  );
+  if (pair) return { requested, city: pair.city, state: pair.state, match: 'city' };
+
+  return { requested, city: null, state: null, match: 'none' };
+}
 
 // 'Bus' -> bus, 'Transit' -> every transit medium.
 const BY_NAME = new Map();
@@ -86,20 +249,7 @@ async function resolveLocations(requested, mediaSlugs) {
     [mediaSlugs]
   );
 
-  const cities = new Map();
-  const states = new Map();
-  for (const row of available) {
-    if (row.city_key) cities.set(row.city_key, { city: row.city, state: row.state });
-    if (row.state_key) states.set(row.state_key, row.state);
-  }
-
-  return wanted.map((name) => {
-    const key = name.toLowerCase();
-    const city = cities.get(key);
-    if (city) return { requested: name, city: city.city, state: city.state, match: 'city' };
-    if (states.has(key)) return { requested: name, city: null, state: states.get(key), match: 'state' };
-    return { requested: name, city: null, state: null, match: 'none' };
-  });
+  return wanted.map((name) => matchRequestedLocation(name, available));
 }
 
 /**
@@ -150,7 +300,14 @@ async function prefetchForBrief(brief = {}, options = {}) {
     };
   }
 
-  const locations = await resolveLocations(brief.target_locations, live);
+  const nationalInventory = live.every((slug) => NATIONAL_MEDIA.has(slug));
+  const locations = nationalInventory ? [] : await resolveLocations(brief.target_locations, live);
+  if (nationalInventory && (brief.target_locations || []).filter(Boolean).length) {
+    notes.push(
+      `${brief.service} inventory is national; ${brief.target_locations.join(', ')} is kept as the ` +
+      'campaign geography and is not used as a city filter.'
+    );
+  }
   for (const loc of locations) {
     if (loc.match === 'none') {
       notes.push(`"${loc.requested}" is not a city or state carrying this medium. It was not searched.`);
@@ -162,7 +319,7 @@ async function prefetchForBrief(brief = {}, options = {}) {
   // A single unit costing more than the entire budget is not a candidate.
   const maxRate = Number(brief.budget) > 0 ? Number(brief.budget) : null;
 
-  const askedForLocations = (brief.target_locations || []).filter(Boolean).length > 0;
+  const askedForLocations = !nationalInventory && (brief.target_locations || []).filter(Boolean).length > 0;
   const usable = locations.filter((l) => l.match !== 'none');
 
   /*
@@ -197,9 +354,15 @@ async function prefetchForBrief(brief = {}, options = {}) {
   const combinations = [];
   for (const slug of live) {
     if (usable.length === 0) {
-      combinations.push({ media: slug, location: null });
+      combinations.push({
+        media: slug,
+        location: null
+      });
     } else {
-      for (const loc of usable) combinations.push({ media: slug, location: loc });
+      for (const loc of usable) combinations.push({
+        media: slug,
+        location: loc
+      });
     }
   }
 
@@ -207,15 +370,22 @@ async function prefetchForBrief(brief = {}, options = {}) {
   // to a database at the far end of a public proxy; sequentially that is most of
   // the prefetch's wall clock.
   const found = await Promise.all(
-    combinations.map((combo) =>
-      searchProducts({
-        mediaType: combo.media,
+    combinations.map(async (combo) => {
+      const params = {
         city: combo.location?.city || undefined,
-        state: combo.location?.city ? undefined : combo.location?.state || undefined,
+        state: combo.location?.state || undefined,
         maxRate,
-        limit: perCombination
-      })
-    )
+        // Read deeper before quality ranking/deduplication; only the best
+        // perCombination rows go into the model prompt below.
+        limit: combo.media === 'cinema'
+          ? Math.max(60, perCombination * 5)
+          : perCombination
+      };
+      const hits = combo.media === 'cinema'
+        ? await searchCinemaCatalog(params)
+        : await searchProducts({ ...params, mediaType: combo.media });
+      return hits.slice(0, perCombination);
+    })
   );
 
   const candidates = [];
@@ -240,14 +410,37 @@ async function prefetchForBrief(brief = {}, options = {}) {
     candidates.push(...hits);
   });
 
+  // Explicit Magazine titles must survive the generic "most inventory" trim.
+  // Search each title separately, accept only an exact normalized name, and
+  // place those products at the front of the shortlist.
+  const requestedNames = Array.isArray(brief.requested_publications)
+    ? brief.requested_publications.map(String).map((value) => value.trim()).filter(Boolean)
+    : [];
+  const requestedCandidates = [];
+  if (live.includes('magazine') && requestedNames.length) {
+    const requestedResults = await Promise.all(
+      requestedNames.map((name) => searchProducts({ q: name, mediaType: 'magazine', limit: 8 }))
+    );
+    requestedResults.forEach((hits, index) => {
+      const key = catalogNameKey(requestedNames[index]);
+      const exact = hits.find((item) => catalogNameKey(item.name) === key);
+      if (exact) requestedCandidates.push(exact);
+      else notes.push(`Requested Magazine title "${requestedNames[index]}" is not in the current catalog.`);
+    });
+  }
+
   // Strongest first, so the trim below drops the weakest rather than whatever
   // happened to be queried last.
   candidates.sort((a, b) => Number(b.priced_options) - Number(a.priced_options));
-  const truncated = candidates.length > maxCandidates;
-  const trimmed = candidates.slice(0, maxCandidates);
+  const prioritized = [...requestedCandidates, ...candidates]
+    .filter((candidate, index, all) =>
+      all.findIndex((item) => String(item.id) === String(candidate.id)) === index
+    );
+  const truncated = prioritized.length > maxCandidates;
+  const trimmed = prioritized.slice(0, maxCandidates);
   if (truncated) {
     notes.push(
-      `${candidates.length} products matched; the ${maxCandidates} with the most price options were kept. ` +
+      `${prioritized.length} products matched; the ${maxCandidates} with requested titles first were kept. ` +
         'Call search_products for anything the shortlist is missing.'
     );
   }
@@ -266,4 +459,50 @@ async function prefetchForBrief(brief = {}, options = {}) {
   };
 }
 
-module.exports = { prefetchForBrief, resolveMedia, resolveLocations, MAX_CANDIDATES };
+/**
+ * Fetch the complete priced Cinema list for the client-facing options sheet.
+ *
+ * The normal prefetch is deliberately small because it is sent to the model.
+ * That shortlist is suitable for recommendations, but it must not become the
+ * client's view of all available screens. This second read keeps every priced
+ * product and every price option in each resolved requested location, without
+ * applying the campaign budget as a per-rate ceiling.
+ */
+async function fetchCompleteCinemaInventory(brief = {}, prefetch = null) {
+  const media = resolveMedia(brief.service);
+  if (!media.slugs.includes('cinema')) return [];
+
+  const locations = prefetch?.locations || await resolveLocations(brief.target_locations, ['cinema']);
+  const askedForLocations = (brief.target_locations || []).filter(Boolean).length > 0;
+  const usable = locations.filter((location) => location.match !== 'none');
+  if (askedForLocations && usable.length === 0) return [];
+
+  const combinations = [];
+  if (usable.length === 0) combinations.push({ location: null });
+  else for (const location of usable) combinations.push({ location });
+
+  const batches = await Promise.all(combinations.map(({ location }) =>
+    searchCinemaCatalog({
+      city: location?.city || undefined,
+      state: location?.state || undefined,
+      pricedOnly: true,
+      limit: 500,
+      optionsPerProduct: 200
+    })
+  ));
+
+  return dedupeCinemaProducts(batches.flat());
+}
+
+module.exports = {
+  prefetchForBrief,
+  fetchCompleteCinemaInventory,
+  resolveMedia,
+  resolveLocations,
+  matchRequestedLocation,
+  cinemaCityValues,
+  cinemaCompleteness,
+  dedupeCinemaProducts,
+  catalogNameKey,
+  MAX_CANDIDATES
+};

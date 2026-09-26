@@ -3,91 +3,59 @@
   "family": "cinema",
   "media_type": "Cinema",
   "label": "Cinema",
-  "sheet_name": "Cinema",
+  "sheet_name": "Plan",
   "title": "PLAN FOR CINEMA BRANDING",
+  "layout": "cinema_pan_india_2025",
   "terms_key": "cinema",
   "rules_key": "cinema",
   "unit_noun": "Screen",
-  "source": "client sheet supplied by the EP desk: Cinema New Proposal.xlsx :: Plan",
+  "source": "Cinema PAN India 07-04-2025 old.xlsx",
   "template": "Cinema.xlsx",
+  "activity": "10 Sec A/V Format",
+  "duration": "4 Weeks",
+  "source_layout": {
+    "one_tab_per_state": true,
+    "header_row_marker": "Sr. No.",
+    "first_column": "B",
+    "stop_at_label": "Total Screens"
+  },
+  "template_layout": {
+    "header_row": 9,
+    "data_start_row": 10,
+    "extra_tabs": ["T&C ", "Case study", "Atlas"]
+  },
+  "inventory_layout": {
+    "_note": "Shape used when a brief states no budget: the sheet lists the inventory that matches the brief with its rate, and nothing is bought. No minimum billing, no making charge, no totals.",
+    "omit_fields": ["tier", "capacity_preference", "total_screen"],
+    "rate_field": "cinema_flight_rate",
+    "rate_header": "Rates for {seconds} Sec :A/V Slide  ({duration})",
+    "summary_rows": []
+  },
+  "summary_rows": [
+    { "label": "Total Screens : {count}", "value": "count" },
+    { "label": "Actual Cost :", "value": null },
+    { "label": "Making & Conversion Cost per Creative", "value": null },
+    { "label": "Sub Total", "value": null },
+    { "label": "GST @ 18%", "value": null },
+    { "label": "Total Cost", "value": null }
+  ],
   "columns": [
-    {
-      "header": "Sr. No.",
-      "field": "sr",
-      "type": "sr",
-      "width": 14
-    },
-    {
-      "header": "State",
-      "field": "state",
-      "type": "text",
-      "width": 14
-    },
-    {
-      "header": "City",
-      "field": "city",
-      "type": "text",
-      "width": 14
-    },
-    {
-      "header": "Screen Code",
-      "field": "screen_code",
-      "type": "text",
-      "width": 15.3
-    },
-    {
-      "header": "Locality",
-      "field": "locality",
-      "type": "text",
-      "width": 15.7
-    },
-    {
-      "header": "Theatre Type",
-      "field": "theatre_type",
-      "type": "text",
-      "width": 16.3
-    },
-    {
-      "header": "Multiplex Name",
-      "field": "multiplex_name",
-      "type": "text",
-      "width": 15.9
-    },
-    {
-      "header": "Address",
-      "field": "address",
-      "type": "text",
-      "width": 18.6
-    },
-    {
-      "header": "Audi No",
-      "field": "audi_no",
-      "type": "text",
-      "width": 13.6
-    },
-    {
-      "header": "Audi Type",
-      "field": "audi_type",
-      "type": "text",
-      "width": 14.6
-    },
-    {
-      "header": "Cinema Chain",
-      "field": "cinema_chain",
-      "type": "text",
-      "width": 20
-    },
-    {
-      "header": "Seating Capacity",
-      "field": "seating_capacity",
-      "type": "int",
-      "width": 15.4
-    },
-    {
-      "header": "Rates for 10 Sec :A/V Slide (4 Weeks)",
-      "field": "rate",
-      "type": "money",
-      "width": 33.3
-    }
+    { "header": "Sr. No.",                               "field": "sr",                  "type": "sr",    "width": 7 },
+    { "header": "State",                                 "field": "state",               "type": "text",  "width": 16 },
+    { "header": "City",                                  "field": "city",                "type": "text",  "width": 16 },
+    { "header": "Screen Code",                           "field": "screen_code",         "type": "text",  "width": 14 },
+    { "header": "Locality",                              "field": "locality",            "type": "text",  "width": 18 },
+    { "header": "Pincode",                               "field": "pincode",             "type": "text",  "width": 10 },
+    { "header": "Theatre Type",                          "field": "theatre_type",        "type": "text",  "width": 11 },
+    { "header": "Multiplex Name",                        "field": "multiplex_name",      "type": "text",  "width": 30 },
+    { "header": "Address",                               "field": "address",             "type": "text",  "width": 48 },
+    { "header": "TIER",                                  "field": "tier",                "type": "text",  "width": 7 },
+    { "header": "Capacity Preference",                   "field": "capacity_preference", "type": "text",  "width": 11 },
+    { "header": "Total Screen",                          "field": "total_screen",        "type": "int",   "width": 8 },
+    { "header": "Audi No",                               "field": "audi_no",             "type": "int",   "width": 7 },
+    { "header": "Audi Type",                             "field": "audi_type",           "type": "text",  "width": 9 },
+    { "header": "Cinema Chain",                          "field": "cinema_chain",        "type": "text",  "width": 12 },
+    { "header": "Seating Capacity",                      "field": "seating_capacity",    "type": "int",   "width": 10 },
+    { "header": "Rates for 10 Sec :A/V Slide  (1 Week)", "field": "cinema_weekly_rate",  "type": "money", "width": 16 }
   ]
 }

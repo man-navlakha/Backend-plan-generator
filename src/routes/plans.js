@@ -25,9 +25,11 @@ const { planWorkbookBuffer } = require('../render');
 const planStorage = require('../storage/appwrite');
 const { checkService } = require('../catalog/availability');
 const { query, one } = require('../pg');
+const log = require('../log');
 const formatIndex = require('../assets/formats/format_index.json');
 
 const router = express.Router();
+const GENERATOR_VERSION = 'magazine-brief-v2';
 
 const wrap = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res, next)).catch(next);
@@ -68,12 +70,19 @@ function readBrief(req) {
   };
 
   const locations = pick('target_locations', 'targetLocations', 'locations', 'location');
+  const catchments = pick('preferred_catchments', 'preferredCatchments', 'catchments');
+  const publications = pick(
+    'requested_publications',
+    'requestedPublications',
+    'publications'
+  );
 
   return {
     deal_id: pick('deal_id', 'dealId', 'deal'),
     company: pick('company', 'client'),
     service: pick('service', 'media', 'media_type', 'mediaType'),
     budget: parseBudget(pick('budget', 'amount')),
+    budget_stated: pick('budget', 'amount') !== undefined,
     campaign_objective: pick('campaign_objective', 'campaignObjective', 'objective') || null,
     target_audience: pick('target_audience', 'targetAudience', 'audience') || null,
     target_locations: Array.isArray(locations)
@@ -82,8 +91,23 @@ function readBrief(req) {
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean),
+    preferred_catchments: Array.isArray(catchments)
+      ? catchments
+      : String(catchments || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+    requested_publications: Array.isArray(publications)
+      ? publications
+      : String(publications || '')
+          .split(/[,;]/)
+          .map((s) => s.trim())
+          .filter(Boolean),
     remarks_for_media: pick('remarks_for_media', 'remarksForMedia', 'remarks') || null,
     duration_months: Number(pick('duration_months', 'months')) || undefined,
+    duration_weeks: Number(pick('duration_weeks', 'weeks')) || undefined,
+    creative_duration_seconds:
+      Number(pick('creative_duration_seconds', 'creativeSeconds', 'ad_seconds')) || undefined,
     client_brief: pick('client_brief', 'clientBrief') || null
   };
 }
@@ -148,7 +172,18 @@ async function generatePlan(req, res, brief, options = {}) {
   if (!brief.deal_id) errors.push({ field: 'deal_id', message: 'Deal ID is required' });
   if (!brief.company) errors.push({ field: 'company', message: 'Company is required' });
   if (!brief.service) errors.push({ field: 'service', message: 'Service (media) is required' });
-  if (!brief.budget) errors.push({ field: 'budget', message: 'Budget must be a positive number' });
+  /*
+   * No budget is a valid request, not a malformed one: the engine answers it
+   * with the inventory that matches the brief instead of a costed plan.
+   *
+   * A budget that was sent and did not parse is still an error. Without this
+   * a mistyped amount would read as "no budget" and quietly return a sheet
+   * with no costs on it, which is the wrong document and says nothing about
+   * the typo that caused it.
+   */
+  if (brief.budget_stated && !(Number(brief.budget) > 0)) {
+    errors.push({ field: 'budget', message: 'Budget must be a positive number when stated' });
+  }
 
   const media = brief.service ? MEDIA_LOOKUP.get(String(brief.service).toLowerCase()) : undefined;
   if (brief.service && !media) {
@@ -203,16 +238,54 @@ async function generatePlan(req, res, brief, options = {}) {
     [briefRow.id, brief.deal_id]
   );
   const planId = planRow.id;
+  const started = Date.now();
+  const strategy = options.strategy === undefined ? req.query.strategy : options.strategy;
+  let stage = 'build';
+
+  log.info('plan.generation.started', {
+    request_id: req.requestId,
+    plan_id: planId,
+    deal_id: brief.deal_id,
+    service: brief.service,
+    strategy: strategy || 'default',
+    budget: Number(brief.budget) || null,
+    target_location_count: Array.isArray(brief.target_locations)
+      ? brief.target_locations.length
+      : 0
+  });
 
   try {
-    const strategy = options.strategy === undefined ? req.query.strategy : options.strategy;
     const built = await buildPlan(brief, { strategy });
 
+    log.info('plan.build.completed', {
+      request_id: req.requestId,
+      plan_id: planId,
+      deal_id: brief.deal_id,
+      status: built.status,
+      strategy: built.plan?.strategy || strategy || 'default',
+      legs: (built.plan?.legs || []).map((leg) => ({
+        media: leg.media,
+        lines: (leg.lines || []).length
+      })),
+      flag_count: (built.flags || []).length,
+      total: built.plan?.totals?.total ?? null,
+      duration_ms: Date.now() - started
+    });
+
     if (!built.plan) {
+      stage = 'persist_blocked';
       await query(
         `update app.plans set status='blocked', flags=$2, error=$3, completed_at=now() where id=$1`,
         [planId, JSON.stringify(built.flags), built.flags[0]?.message || 'No plan could be built']
       );
+      log.warn('plan.generation.blocked', {
+        request_id: req.requestId,
+        plan_id: planId,
+        deal_id: brief.deal_id,
+        service: brief.service,
+        reason: built.flags[0]?.message || 'No plan could be built from this brief.',
+        duration_ms: Date.now() - started
+      });
       return res.status(200).json({
         status: 'blocked',
         plan_id: planId,
@@ -225,13 +298,29 @@ async function generatePlan(req, res, brief, options = {}) {
 
     // Render and upload. A plan that exists only in this response is a plan
     // nobody else can open, so the workbook goes to storage before the reply.
-    const workbook = await planWorkbookBuffer(built.plan);
+    stage = 'render_workbook';
+    const workbook = await planWorkbookBuffer(built.plan, {
+      requestId: req.requestId,
+      planId,
+      dealId: brief.deal_id
+    });
+
+    stage = 'upload_workbook';
     const uploaded = await planStorage.uploadPlan(workbook, { plan: built.plan });
+    log.info('plan.upload.completed', {
+      request_id: req.requestId,
+      plan_id: planId,
+      deal_id: brief.deal_id,
+      file_id: uploaded.fileId,
+      file_name: uploaded.name,
+      file_size: uploaded.size
+    });
 
     // The URL handed out is this API's, not Appwrite's. Appwrite's needs the
     // server key; ours serves the file and keeps the bucket private.
     const downloadUrl = `${publicBaseUrl(req)}/plans/${planId}/download`;
 
+    stage = 'persist_ready';
     await query(
       `update app.plans
           set status=$2, plan=$3, flags=$4, grand_total=$5,
@@ -252,6 +341,16 @@ async function generatePlan(req, res, brief, options = {}) {
         null
       ]
     );
+
+    log.info('plan.generation.completed', {
+      request_id: req.requestId,
+      plan_id: planId,
+      deal_id: brief.deal_id,
+      service: brief.service,
+      status: built.status,
+      total: built.plan.totals.total,
+      duration_ms: Date.now() - started
+    });
 
     return res.status(options.successStatus || 201).json({
       status: built.status,
@@ -284,6 +383,15 @@ async function generatePlan(req, res, brief, options = {}) {
       ...(options.response || {})
     });
   } catch (error) {
+    log.error('plan.generation.failed', {
+      request_id: req.requestId,
+      plan_id: planId,
+      deal_id: brief.deal_id,
+      service: brief.service,
+      stage,
+      duration_ms: Date.now() - started,
+      error: log.errorDetails(error)
+    });
     await query(
       `update app.plans set status='failed', error=$2, completed_at=now() where id=$1`,
       [planId, error.message]
@@ -307,12 +415,13 @@ async function reusableCrmPlan(dealId, service, clientBrief) {
       where b.deal_id = $1
         and b.service = $2
         and b.raw ->> 'source' = 'crm_get'
+        and b.raw ->> 'generator_version' = $4
         and b.raw ->> 'client_brief' = $3
         and p.status in ('ready', 'blocked')
         and p.file_id is not null
       order by p.id desc
       limit 1`,
-    [dealId, service, clientBrief]
+    [dealId, service, clientBrief, GENERATOR_VERSION]
   );
 }
 
@@ -352,10 +461,25 @@ router.get('/generate', wrap(async (req, res) => {
   }
 
   const force = ['1', 'true', 'yes'].includes(firstQueryValue(req.query.force).toLowerCase());
+  log.info('plan.crm.received', {
+    request_id: req.requestId,
+    deal_id: dealId,
+    service: media.name,
+    force,
+    client_brief_length: clientBrief.length
+  });
+
   if (!force) {
     const existing = await reusableCrmPlan(dealId, media.name, clientBrief);
     if (existing) {
       const raw = existing.raw || {};
+      log.info('plan.crm.reused', {
+        request_id: req.requestId,
+        plan_id: existing.id,
+        deal_id: dealId,
+        service: media.name,
+        status: existing.status
+      });
       return res.status(200).json({
         status: existing.status,
         reused: true,
@@ -394,8 +518,28 @@ router.get('/generate', wrap(async (req, res) => {
 
   let review;
   try {
+    log.info('plan.brief_review.started', {
+      request_id: req.requestId,
+      deal_id: dealId,
+      service: media.name
+    });
     review = await reviewClientBrief(clientBrief, { service: media.name });
+    log.info('plan.brief_review.completed', {
+      request_id: req.requestId,
+      deal_id: dealId,
+      service: media.name,
+      model: review.model,
+      missing_field_count: review.missing_fields.length,
+      service_conflict: review.service_conflict,
+      warning_count: review.warnings.length
+    });
   } catch (error) {
+    log.error('plan.brief_review.failed', {
+      request_id: req.requestId,
+      deal_id: dealId,
+      service: media.name,
+      error: log.errorDetails(error)
+    });
     if (!error.status) error.status = 502;
     if (!error.code) error.code = 'brief_review_failed';
     throw error;
@@ -414,6 +558,13 @@ router.get('/generate', wrap(async (req, res) => {
   };
 
   if (review.missing_fields.length) {
+    log.warn('plan.brief_review.rejected', {
+      request_id: req.requestId,
+      deal_id: dealId,
+      service: media.name,
+      reason: 'missing_fields',
+      missing_fields: review.missing_fields
+    });
     return res.status(422).json({
       status: 'incomplete_brief',
       code: 'missing_brief_details',
@@ -425,6 +576,12 @@ router.get('/generate', wrap(async (req, res) => {
   }
 
   if (review.service_conflict) {
+    log.warn('plan.brief_review.rejected', {
+      request_id: req.requestId,
+      deal_id: dealId,
+      service: media.name,
+      reason: 'service_conflict'
+    });
     return res.status(422).json({
       status: 'incomplete_brief',
       code: 'service_mismatch',
@@ -450,6 +607,7 @@ router.get('/generate', wrap(async (req, res) => {
     response: reviewResponse,
     raw: {
       source: 'crm_get',
+      generator_version: GENERATOR_VERSION,
       deal_id: dealId,
       service,
       client_brief: clientBrief,

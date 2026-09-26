@@ -19,6 +19,7 @@
 
 const OpenAI = require('openai');
 const { searchProducts, getPriceOptions, citiesForMedia } = require('../catalog/search');
+const { isInventory } = require('./mode');
 
 const MODEL = process.env.OPENAI_MODEL || 'gpt-5-mini';
 const MAX_TOOL_ROUNDS = Number(process.env.PLAN_MAX_TOOL_ROUNDS || 6);
@@ -189,7 +190,11 @@ const SELECTION_SCHEMA = {
           product_id: { type: 'integer' },
           price_option_id: { type: 'integer' },
           qty: { type: 'integer', description: 'Units: buses, autos, screens, spots.' },
-          months: { type: 'integer', description: 'Duration. Use 1 for media not priced by month.' },
+          months: {
+            type: 'integer',
+            description:
+              'Billing-period multiplier. For per-week rates use campaign weeks; for per-month rates use campaign months; otherwise use 1.'
+          },
           why: { type: 'string', description: 'One sentence: why this option, this quantity.' }
         },
         required: ['product_id', 'price_option_id', 'qty', 'months', 'why'],
@@ -221,6 +226,17 @@ Rules you must follow:
   Costs are computed downstream from the rate card; any number you invent would be wrong.
 - Only use ids that appear in the shortlist or in a tool result. Never guess an id.
 - Respect minimum_billing and the unit minimums. A quantity below a stated minimum cannot be bought.
+- The months field is the billing-period multiplier, despite its legacy name. If pricing_unit says per week,
+  set it to the requested duration_weeks (a four-week Cinema campaign uses months=4). If pricing_unit
+  says per month, use duration_months. Use 1 only when the price has no duration unit.
+- For Cinema, qty is the ad-film or slide length in seconds. Use creative_duration_seconds when stated;
+  otherwise use the Cinema standard of 10 seconds. Spend additional budget by selecting more suitable
+  screens or properties, never by silently lengthening the creative.
+- For Cinema, your selections form the "Recommended Plan" sheet. The workbook separately includes every
+  matching priced screen in the client's requested locations, so recommend the strongest balanced buy from
+  that inventory. Cover every requested city that has inventory; do not spend the whole budget in one city
+  and omit another requested city. Prioritise named chains, venues and catchments. If the budget cannot buy
+  at least one suitable screen in every requested city, explain that in concerns instead of substituting a city.
 - SPEND THE BUDGET. The client has allocated this money and expects a plan that uses it. Aim to land
   between 85% and 97% of the budget. A plan that spends a fraction of what was allocated is a failed
   plan -- it will be rejected and reworked. Before you answer, add up roughly what your selections
@@ -234,7 +250,53 @@ Rules you must follow:
 - Transit and outdoor need at least 2 months to work. Radio, cinema and digital are bought in bursts.
 - If the brief asks for a city or a medium the catalog does not carry, say so in concerns.
   Do not substitute another city silently.
+- For Magazine, every title in requested_publications is mandatory. Select its exact catalog title
+  when present; never replace it with a similarly named publication.
 - If the shortlist is not enough, call the tools before deciding.`;
+
+/*
+ * The no-budget counterpart. The costed prompt above is organised around
+ * spending a number; with no number to spend, every instruction built on it
+ * misleads -- so the task is restated rather than patched.
+ *
+ * The job here is curation: a representative spread the desk can send as an
+ * options list, not a purchase. Quantity and duration still come back because
+ * the sheet quotes a rate for a stated creative length and flight.
+ */
+const SYSTEM_INVENTORY = `You are a media planner at an Indian out-of-home advertising agency,
+drawing up a list of available inventory from the agency's own rate card.
+
+The client has NOT stated a budget. You are not buying anything. You are choosing what to SHOW:
+an options list the desk sends so the client can pick from it.
+
+Rules you must follow:
+- Return only product_id, price_option_id, qty and months. Never a rate, a total or any rupee figure.
+- Only use ids that appear in the shortlist or in a tool result. Never guess an id.
+- There is no budget. Never leave inventory out because it looks expensive, and never try to hit
+  a total. Cost is not your concern here.
+- If the brief explicitly asks for a minimum-cost or low-budget proposal, prefer the lowest suitable
+  rates among the requested inventory. There is still no spending ceiling, so do not invent one.
+- Cover every city the brief asks for. A city the catalog carries and your list omits reads to the
+  client as a city we cannot serve. If the catalog genuinely has nothing in a city, say so in concerns.
+- Within each city, give a spread the client can actually choose between: different properties,
+  and across theatre types and audience classes where the shortlist has them. Prefer breadth of
+  venue over every screen in one multiplex -- two or three audis from a property is usually enough
+  to show what it offers.
+- Aim for a sheet a client will read: roughly 100 to 180 rows across all cities. Weight the count
+  towards the larger markets rather than splitting it evenly.
+- Magazine is the exception: make a concise proposal of roughly 4 to 10 rows. Include every exact
+  requested publication, then add only closely relevant recommendations. A title may have more than
+  one useful inside-page size, but do not pad the proposal with every cover position in the catalog.
+- For Cinema, one selection is one screen, so qty and months do not vary the row count. Set qty to the
+  creative length in seconds (creative_duration_seconds, else the Cinema standard of 10) and
+  months to the campaign duration in the unit the rate uses -- duration_weeks for a per-week rate.
+- For Cinema, your selections are recommendations shown on a separate "Recommended Plan" sheet. The
+  workbook also carries the complete matching priced inventory so the client can make a different choice.
+  Recommend a balanced spread across every requested city and prioritise named chains, venues and catchments.
+- If the brief names a chain, a theatre type or a catchment, honour it. Do not pad the list with
+  inventory the brief excluded.
+- For Magazine, every title in requested_publications is mandatory. Select its exact catalog title
+  when present; never replace it with a similarly named publication.`;
 
 /**
  * Asks the model for selections.
@@ -246,8 +308,9 @@ async function selectWithModel(brief, prefetch, options = {}) {
   const maxRounds = options.maxToolRounds ?? MAX_TOOL_ROUNDS;
   const toolCalls = [];
 
+  const inventory = isInventory(brief);
   const messages = [
-    { role: 'system', content: SYSTEM },
+    { role: 'system', content: inventory ? SYSTEM_INVENTORY : SYSTEM },
     {
       role: 'user',
       content: JSON.stringify(
@@ -255,15 +318,21 @@ async function selectWithModel(brief, prefetch, options = {}) {
           brief: {
             company: brief.company,
             service: brief.service,
-            budget: brief.budget,
+            budget: inventory ? undefined : brief.budget,
             budget_range:
-              brief.budget_min && brief.budget_max
+              !inventory && brief.budget_min && brief.budget_max
                 ? { minimum: brief.budget_min, maximum: brief.budget_max }
                 : null,
+            no_budget_stated: inventory || undefined,
             objective: brief.campaign_objective,
             audience: brief.target_audience,
             locations: brief.target_locations,
+            preferred_catchments: brief.preferred_catchments || [],
+            duration_months: brief.duration_months || null,
+            duration_weeks: brief.duration_weeks || null,
+            creative_duration_seconds: brief.creative_duration_seconds || null,
             remarks: brief.remarks_for_media,
+            requested_publications: brief.requested_publications || [],
             // The CRM route keeps the original wording as well as the extracted
             // fields so unusual constraints are not lost between the two model
             // stages. The structured fields above remain the planning contract.

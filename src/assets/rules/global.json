@@ -32,11 +32,11 @@
       "id": "global.gst_rate",
       "severity": "warn",
       "assert": {
-        "field": "gst",
+        "field": "gst_rate",
         "op": "==",
         "value": 18
       },
-      "message": "GST is 18 percent on every transit and radio option in the master. Flag any line that differs.",
+      "message": "GST is 18 percent on every priced media option in the master. Flag any line that differs.",
       "source": "price_options.gst"
     },
     {

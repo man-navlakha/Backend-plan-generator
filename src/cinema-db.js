@@ -39,7 +39,8 @@ function initializeSchema() {
     );
     CREATE TABLE IF NOT EXISTS locations (
       id INTEGER PRIMARY KEY, product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-      source_row INTEGER NOT NULL, type TEXT, zone TEXT, state TEXT, city TEXT, locality TEXT
+      source_row INTEGER NOT NULL, type TEXT, zone TEXT, state TEXT, city TEXT, locality TEXT,
+      pincode INTEGER
     );
     CREATE TABLE IF NOT EXISTS price_options (
       id INTEGER PRIMARY KEY, product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
@@ -83,6 +84,13 @@ function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_cinema_issues_product ON data_quality_issues(product_id);
     CREATE INDEX IF NOT EXISTS idx_cinema_issues_code ON data_quality_issues(code);
   `);
+
+  // Databases imported before PIN Code was read from the master predate the
+  // column, and CREATE TABLE IF NOT EXISTS leaves them as they are.
+  const columns = db.prepare('PRAGMA table_info(locations)').all();
+  if (!columns.some((column) => column.name === 'pincode')) {
+    db.exec('ALTER TABLE locations ADD COLUMN pincode INTEGER');
+  }
 }
 
 if (!READ_ONLY) initializeSchema();
@@ -91,7 +99,12 @@ function finalize() {
   if (READ_ONLY) return;
   const connection = open();
   connection.pragma('wal_checkpoint(TRUNCATE)');
-  connection.pragma('journal_mode = DELETE');
+  try {
+    connection.pragma('journal_mode = DELETE');
+  } catch (error) {
+    if (error.code !== 'SQLITE_BUSY') throw error;
+    console.warn('Cinema catalog is in use; leaving SQLite in WAL mode for this local import.');
+  }
   connection.close();
   handle = null;
 }

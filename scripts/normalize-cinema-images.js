@@ -15,7 +15,7 @@ const fs = require('fs');
 const ExcelJS = require('exceljs');
 
 const CINEMA_DIR = path.join(__dirname, '..', 'src', 'assets', 'Masters', 'Cinema');
-const MASTER_PATH = path.join(CINEMA_DIR, 'New Cinema Master Final.xlsx');
+const MASTER_PATH = path.join(CINEMA_DIR, 'cinema.xlsx');
 const IMAGES_DIR = path.join(CINEMA_DIR, 'Images');
 const PLACEHOLDER = 'placeholder.webp';
 

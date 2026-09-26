@@ -158,7 +158,9 @@ CREATE TABLE IF NOT EXISTS app.briefs (
   deal_id            TEXT NOT NULL,
   company            TEXT NOT NULL,
   service            TEXT NOT NULL,
-  budget             NUMERIC NOT NULL,
+  -- Null means the CRM did not state a campaign budget. The generator then
+  -- produces an inventory/options proposal instead of inventing a ceiling.
+  budget             NUMERIC,
   campaign_objective TEXT,
   target_audience    TEXT,
   target_locations   TEXT[] NOT NULL DEFAULT '{}',

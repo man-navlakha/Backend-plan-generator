@@ -1,6 +1,14 @@
 {
   "label": "Cinema advertising",
   "extends": "global",
+  "billing": {
+    "default_activity_seconds": 10,
+    "rate_unit": "per week per second",
+    "making_conversion_cost_per_creative": 5000,
+    "default_creatives": 1,
+    "gst_rate": 18,
+    "source": "Cinema PAN India 07-04-2025 old.xlsx"
+  },
   "constraints": [],
   "scenarios": [],
   "guidance": {

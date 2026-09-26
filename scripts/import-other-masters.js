@@ -7,10 +7,10 @@ const { db, DB_PATH, finalize } = require('../src/other-masters-db');
 const ROOT = path.join(__dirname, '../src/assets/Masters');
 const CATALOGS = [
   ['btl', 'BTL & Non-Traditional', 'btl/NonTraditional Master-01-09-2026.xlsx'],
-  ['cinema', 'Cinema', 'Cinema/New Cinema Master Final.xlsx'],
+  ['cinema', 'Cinema', 'Cinema/cinema.xlsx'],
   ['digital', 'Digital', 'digital/digital-master-10-04-2026.xlsx'],
   ['digital_pr', 'Digital PR', 'digital_pr/digitalpr-master-15-02-2026.xlsx'],
-  ['magazine', 'Magazine', 'print/Magazine/magazine-master-01-06-2026.xlsx'],
+  ['magazine', 'Magazine', 'print/Magazine/Magazine-Master-22-09-2026.xlsx'],
   ['newspaper', 'Newspaper', 'print/newspaper/newspaper-master-13-02-2026.xlsx'],
   ['radio', 'Radio', 'Radio/radiomaster.xlsx'],
   ['transit', 'Transit', 'Transit/transitmaster.xlsx'],
@@ -116,36 +116,141 @@ function issue(slug, productId, rowId, sheet, sourceRow, severity, code, field, 
     current == null ? null : String(current), suggestion, message);
 }
 
+function importCinemaFromDatabase([slug, label, workbookPath]) {
+  const sourcePath = LEGACY_DB_PATHS.cinema;
+  const counts = {
+    Product: 0, 'Price Option': 0, 'Price Unit': 0, Location: 0,
+    'Offer Rate Source': 0, 'Qube Rate Card': 0
+  };
+  const source = new Database(sourcePath, { readonly: true, fileMustExist: true });
+  try {
+    counts.Product = source.prepare('SELECT COUNT(*) n FROM products').get().n;
+    counts['Price Option'] = source.prepare('SELECT COUNT(*) n FROM price_options').get().n;
+    counts['Price Unit'] = source.prepare('SELECT COUNT(*) n FROM price_units').get().n;
+    counts.Location = source.prepare('SELECT COUNT(*) n FROM locations').get().n;
+    counts['Offer Rate Source'] = source.prepare('SELECT COUNT(*) n FROM offer_rate_sources').get().n;
+    counts['Qube Rate Card'] = source.prepare('SELECT COUNT(*) n FROM qube_rate_card').get().n;
+  } finally { source.close(); }
+
+  console.log(`Importing ${label} from typed database: ${JSON.stringify(counts)}`);
+  // The catalog has two cascading paths (catalog -> rows and product -> rows).
+  // Disable the triggers during this fully manual replacement, then verify all
+  // relationships before considering the import successful.
+  db.pragma('foreign_keys = OFF');
+  db.prepare('ATTACH DATABASE ? AS cinema_source').run(sourcePath);
+  try {
+    db.transaction(() => {
+      db.prepare('DELETE FROM data_quality_issues WHERE catalog_slug=?').run(slug);
+      db.prepare("DELETE FROM related_rows WHERE catalog_slug=? AND sheet<>'Price Option'").run(slug);
+      db.prepare("DELETE FROM related_rows WHERE catalog_slug=? AND sheet='Price Option'").run(slug);
+      db.prepare('DELETE FROM products WHERE catalog_slug=?').run(slug);
+      db.prepare('DELETE FROM catalogs WHERE slug=?').run(slug);
+      insertCatalog.run(slug, label, workbookPath.replaceAll('\\', '/'), new Date().toISOString(), JSON.stringify(counts));
+
+      db.exec(`
+        INSERT INTO products(catalog_slug,source_row,sku,name,description,image,image_url,status,sort_order,fields_json)
+        SELECT 'cinema',source_row,sku,name,description,image,
+          CASE WHEN image IS NULL THEN NULL ELSE '/master-images/Cinema/Images/' || replace(image,' ','%20') END,
+          status,sort_order,json_object(
+            'Product Name',name,'Sku',sku,'Short Description',description,'Meta Title',meta_title,
+            'Meta Description',meta_description,'Meta Keywords',meta_keywords,'Image',image,
+            'Sort Order',sort_order,'Status',status,'Cinema Chain',cinema_chain,
+            'Screen Recomend',screen_recommend,'Audience Class',audience_class,
+            'Tier Preference',tier,'Seats',seats,'Screen',screen,'Rank',rank,
+            'Total Screen',total_screen,'Google Map Location',google_map_location)
+        FROM cinema_source.products;
+
+        INSERT INTO related_rows(catalog_slug,product_id,option_id,sheet,source_row,product_sku,option_sku,name,
+          price,buying_rate,discounted_rate,minimum_billing,pricing_unit,image_url,fields_json)
+        SELECT 'cinema',p.id,NULL,'Price Option',o.source_row,o.product_sku,o.sku,o.name,
+          o.offer_rate,o.buying_rate,o.discounted_rate,o.minimum_billing,o.pricing_unit,
+          CASE WHEN o.image IS NULL THEN NULL ELSE '/master-images/Cinema/Images/' || replace(o.image,' ','%20') END,
+          json_object('Product Name',o.product_name,'Product Sku',o.product_sku,'Price Option Name',o.name,
+            'Price Option Sku',o.sku,'Pricing Template Name',o.template,'Minimum Billing',o.minimum_billing,
+            'Offer Rate',o.offer_rate,'Specific Buying Rate',o.buying_rate,'Discounted Rate',o.discounted_rate,
+            'Pricing Unit',o.pricing_unit,'GST',o.gst,'On Request',o.on_request,'Description',o.description_html,
+            'Media Gallery',o.media_gallery,'Image',o.image,'Sort Order',o.sort_order,'Status',o.status)
+        FROM cinema_source.price_options o
+        LEFT JOIN cinema_source.products sp ON sp.id=o.product_id
+        LEFT JOIN products p ON p.catalog_slug='cinema' AND p.source_row=sp.source_row;
+
+        INSERT INTO related_rows(catalog_slug,product_id,option_id,sheet,source_row,product_sku,option_sku,name,
+          price,buying_rate,discounted_rate,minimum_billing,pricing_unit,image_url,fields_json)
+        SELECT 'cinema',p.id,po.id,'Price Unit',u.source_row,so.product_sku,so.sku,u.name,
+          NULL,NULL,NULL,NULL,NULL,NULL,json_object('Product Name',so.product_name,'Product Sku',so.product_sku,
+            'Price Option Name',so.name,'Price Option Sku',so.sku,'Unit Name',u.name,'Code',u.code,
+            'Step',u.step,'Minimum',u.minimum,'Maximum',u.maximum,'Sort Order',u.sort_order)
+        FROM cinema_source.price_units u
+        LEFT JOIN cinema_source.price_options so ON so.id=u.price_option_id
+        LEFT JOIN cinema_source.products sp ON sp.id=so.product_id
+        LEFT JOIN products p ON p.catalog_slug='cinema' AND p.source_row=sp.source_row
+        LEFT JOIN related_rows po ON po.catalog_slug='cinema' AND po.sheet='Price Option' AND po.source_row=so.source_row;
+
+        INSERT INTO related_rows(catalog_slug,product_id,option_id,sheet,source_row,product_sku,option_sku,name,
+          price,buying_rate,discounted_rate,minimum_billing,pricing_unit,image_url,fields_json)
+        SELECT 'cinema',p.id,NULL,'Location',l.source_row,sp.sku,NULL,l.city,NULL,NULL,NULL,NULL,NULL,NULL,
+          json_object('Product Name',sp.name,'Product Sku',sp.sku,'Type',l.type,'Zone',l.zone,
+            'State',l.state,'City',l.city,'Locality',l.locality)
+        FROM cinema_source.locations l
+        LEFT JOIN cinema_source.products sp ON sp.id=l.product_id
+        LEFT JOIN products p ON p.catalog_slug='cinema' AND p.source_row=sp.source_row;
+
+        INSERT INTO data_quality_issues(catalog_slug,product_id,related_row_id,sheet,source_row,severity,code,field,
+          current_value,suggested_value,message)
+        SELECT 'cinema',p.id,po.id,q.source_sheet,q.source_row,q.severity,q.code,q.field,
+          q.current_value,q.suggested_value,q.message
+        FROM cinema_source.data_quality_issues q
+        LEFT JOIN cinema_source.products sp ON sp.id=q.product_id
+        LEFT JOIN products p ON p.catalog_slug='cinema' AND p.source_row=sp.source_row
+        LEFT JOIN cinema_source.price_options so ON so.id=q.price_option_id
+        LEFT JOIN related_rows po ON po.catalog_slug='cinema' AND po.sheet='Price Option' AND po.source_row=so.source_row;
+      `);
+    })();
+  } finally {
+    db.exec('DETACH DATABASE cinema_source');
+    db.pragma('foreign_keys = ON');
+  }
+  const foreignKeyErrors = db.pragma('foreign_key_check');
+  if (foreignKeyErrors.length) throw new Error(`Cinema shared import created ${foreignKeyErrors.length} foreign-key errors`);
+  const issues = db.prepare("SELECT COUNT(*) count FROM data_quality_issues WHERE catalog_slug='cinema'").get().count;
+  console.log(`${label}: ${counts.Product} products, ${issues} issues`);
+}
+
 async function importCatalog([slug, label, workbookPath]) {
+  if (slug === 'cinema') return importCinemaFromDatabase([slug, label, workbookPath]);
   const file = path.join(ROOT, workbookPath);
   if (!fs.existsSync(file)) throw new Error(`Missing workbook: ${file}`);
-  const workbook = new ExcelJS.Workbook();
+  let workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(file);
   const sheetRows = Object.fromEntries(workbook.worksheets.map((sheet) => [sheet.name, rows(sheet)]));
   if (slug === 'cinema') {
     const sources = workbook.getWorksheet('Offer Rate Source');
     sheetRows['Offer Rate Source'] = [];
-    for (let rowNumber = 2; rowNumber <= sources.rowCount; rowNumber++) {
-      const row = sources.getRow(rowNumber);
-      const optionSku = value(row.getCell(1));
-      if (!optionSku) continue;
-      sheetRows['Offer Rate Source'].push({ source_row: rowNumber, fields: {
-        'Price Option Sku': optionSku, 'Product Name': value(row.getCell(2)),
-        Screen: value(row.getCell(3)), 'Rate Source': value(row.getCell(4)),
-        Basis: value(row.getCell(5)), 'Source Rate': value(row.getCell(6)),
-        'Divide By': value(row.getCell(7)), 'Offer Rate': value(row.getCell(8))
-      } });
+    if (sources) {
+      for (let rowNumber = 2; rowNumber <= sources.rowCount; rowNumber++) {
+        const row = sources.getRow(rowNumber);
+        const optionSku = value(row.getCell(1));
+        if (!optionSku) continue;
+        sheetRows['Offer Rate Source'].push({ source_row: rowNumber, fields: {
+          'Price Option Sku': optionSku, 'Product Name': value(row.getCell(2)),
+          Screen: value(row.getCell(3)), 'Rate Source': value(row.getCell(4)),
+          Basis: value(row.getCell(5)), 'Source Rate': value(row.getCell(6)),
+          'Divide By': value(row.getCell(7)), 'Offer Rate': value(row.getCell(8))
+        } });
+      }
     }
     const rateCard = workbook.getWorksheet('Qube Rate Card');
     sheetRows['Qube Rate Card'] = [];
-    for (let rowNumber = 1; rowNumber <= rateCard.rowCount; rowNumber++) {
-      const row = rateCard.getRow(rowNumber);
-      const name = value(row.getCell(1));
-      const rate = value(row.getCell(2));
-      if (!name || number(rate) == null) continue;
-      sheetRows['Qube Rate Card'].push({ source_row: rowNumber, fields: {
-        Section: rowNumber < 37 ? 'State Default' : 'Theatre Exception', Name: name, Rate: rate
-      } });
+    if (rateCard) {
+      for (let rowNumber = 1; rowNumber <= rateCard.rowCount; rowNumber++) {
+        const row = rateCard.getRow(rowNumber);
+        const name = value(row.getCell(1));
+        const rate = value(row.getCell(2));
+        if (!name || number(rate) == null) continue;
+        sheetRows['Qube Rate Card'].push({ source_row: rowNumber, fields: {
+          Section: rowNumber < 37 ? 'State Default' : 'Theatre Exception', Name: name, Rate: rate
+        } });
+      }
     }
   }
   if (slug === 'radio') {
@@ -163,10 +268,18 @@ async function importCatalog([slug, label, workbookPath]) {
     }
   }
   const counts = Object.fromEntries(Object.entries(sheetRows).map(([name, data]) => [name, data.length]));
+  // Large masters (Cinema is 69k+ related rows) otherwise keep ExcelJS's full
+  // worksheet/style graph alive throughout every SQLite insert.
+  workbook = null;
+  if (global.gc) global.gc();
   const images = imageIndex(slug);
   console.log(`Importing ${label}: ${JSON.stringify(counts)}`);
 
   db.transaction(() => {
+    db.prepare('DELETE FROM data_quality_issues WHERE catalog_slug=?').run(slug);
+    db.prepare("DELETE FROM related_rows WHERE catalog_slug=? AND sheet<>'Price Option'").run(slug);
+    db.prepare("DELETE FROM related_rows WHERE catalog_slug=? AND sheet='Price Option'").run(slug);
+    db.prepare('DELETE FROM products WHERE catalog_slug=?').run(slug);
     db.prepare('DELETE FROM catalogs WHERE slug=?').run(slug);
     insertCatalog.run(slug, label, workbookPath.replaceAll('\\', '/'), new Date().toISOString(), JSON.stringify(counts));
     const products = new Map();

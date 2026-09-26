@@ -7,6 +7,7 @@ const radioRouter = require('./routes/radio');
 const cinemaRouter = require('./routes/cinema');
 const mastersRouter = require('./routes/masters');
 const plansRouter = require('./routes/plans');
+const log = require('./log');
 
 const app = express();
 
@@ -50,6 +51,36 @@ app.use(
 app.use('/radio-images', express.static(path.join(__dirname, 'assets/Masters/Radio/product-images/product'), { immutable: true, maxAge: '7d' }));
 app.use('/cinema-images', express.static(path.join(__dirname, 'assets/Masters/Cinema/Images'), { immutable: true, maxAge: '7d' }));
 
+// Correlate every API request without logging query strings, request bodies or
+// authorization headers. Health probes are deliberately skipped to keep
+// Railway logs useful rather than filling them with polling noise.
+app.use((req, res, next) => {
+  if (req.path === '/health' || req.path.startsWith('/health/')) return next();
+
+  const started = Date.now();
+  const method = req.method;
+  const requestPath = req.path;
+  req.requestId = log.requestId(req.get('x-request-id'));
+  res.setHeader('X-Request-Id', req.requestId);
+
+  log.info('http.request.started', {
+    request_id: req.requestId,
+    method,
+    path: requestPath
+  });
+
+  res.once('finish', () => {
+    log.info('http.request.completed', {
+      request_id: req.requestId,
+      method,
+      path: requestPath,
+      status: res.statusCode,
+      duration_ms: Date.now() - started
+    });
+  });
+  next();
+});
+
 app.use('/health', healthRouter);
 app.use('/brief', briefRouter);
 app.use('/plans', plansRouter);
@@ -64,7 +95,12 @@ app.use((req, res) => {
 
 // eslint-disable-next-line no-unused-vars -- Express identifies error handlers by arity
 app.use((err, req, res, next) => {
-  console.error(err);
+  log.error('http.request.failed', {
+    request_id: req.requestId,
+    method: req.method,
+    path: req.path,
+    error: log.errorDetails(err)
+  });
   res.status(err.status || 500).json({
     status: 'error',
     code: err.code || 'internal_error',

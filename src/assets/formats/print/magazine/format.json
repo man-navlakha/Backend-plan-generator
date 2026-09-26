@@ -24,22 +24,10 @@
       "width": 11.7
     },
     {
-      "header": "Edition",
-      "field": "edition",
-      "type": "text",
-      "width": 14
-    },
-    {
       "header": "Approx. Circulation",
       "field": "circulation",
       "type": "int",
       "width": 26.4
-    },
-    {
-      "header": "Readership",
-      "field": "readership",
-      "type": "text",
-      "width": 13.6
     },
     {
       "header": "Frequency",
@@ -66,7 +54,7 @@
       "width": 20.3
     },
     {
-      "header": "GST @5%",
+      "header": "GST @18%",
       "field": "gst",
       "type": "money",
       "width": 13.9

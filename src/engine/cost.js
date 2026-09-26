@@ -88,6 +88,36 @@ function quantityFloor(option) {
 }
 
 /**
+ * Catalog facts that belong on the client sheet. Product and option attributes
+ * were previously available during selection but discarded during costing,
+ * which left media-specific templates (especially Cinema) almost empty.
+ * Computed money fields are applied after this object and cannot be overridden
+ * by source attributes.
+ */
+function lineCatalogFields(product = {}, option = {}) {
+  const productAttrs =
+    product.attrs && typeof product.attrs === 'object' && !Array.isArray(product.attrs)
+      ? product.attrs
+      : {};
+  const optionAttrs =
+    option.attrs && typeof option.attrs === 'object' && !Array.isArray(option.attrs)
+      ? option.attrs
+      : {};
+
+  return {
+    ...productAttrs,
+    ...optionAttrs,
+    product_sku: product.sku || null,
+    product_description: product.description || null,
+    option_template: option.template || null,
+    city: product.city || null,
+    locality: product.locality || null,
+    zone: product.zone || null,
+    image_url: product.image_url || null
+  };
+}
+
+/**
  * Costs one line.
  *
  *   option   a price option row as searchProducts returns it
@@ -98,7 +128,10 @@ function quantityFloor(option) {
  * describing anything that changed the arithmetic. The adjustments are what a
  * flag or a desk note is written from -- they are not cosmetic.
  */
-function costLine(option, { qty, months = 1, product = {}, allowDiscount = true, addonTotal = null } = {}) {
+function costLine(option, {
+  qty, months = 1, product = {}, allowDiscount = true, addonTotal = null,
+  applyMinimumBilling = true
+} = {}) {
   const adjustments = [];
 
   const { rate, basis, buying, note } = chooseRate(option, { allowDiscount });
@@ -134,9 +167,12 @@ function costLine(option, { qty, months = 1, product = {}, allowDiscount = true,
   // Minimum billing is a floor on the line, not on the unit rate. When it bites,
   // the sheet must show a rate that still multiplies out to the total, which is
   // what the `rate` resolver in the renderer does off `min_billing_applied`.
+  // On an inventory sheet nothing has been bought, so nothing has reached a
+  // billing floor. Lifting a row to the minimum there would quote the client a
+  // price for one screen that is really the price of a whole booking.
   const minimumBilling = num(option.minimum_billing);
   let minBillingApplied = false;
-  if (minimumBilling !== null && minimumBilling > net) {
+  if (applyMinimumBilling && minimumBilling !== null && minimumBilling > net) {
     adjustments.push({
       type: 'minimum_billing',
       message:
@@ -170,12 +206,15 @@ function costLine(option, { qty, months = 1, product = {}, allowDiscount = true,
   }
 
   return {
+    ...lineCatalogFields(product, option),
     // Fields the renderer and its resolvers read.
     product_name: product.name || option.product_name || null,
     sku: option.sku,
     state: product.state || null,
     market: product.city || null,
     price_option: option.name,
+    on_request: option.on_request === true || option.on_request === 'Y' ? 'Y' : 'N',
+    status: option.status == null ? 1 : option.status,
     qty: quantity,
     months: duration,
     rate,
@@ -215,8 +254,8 @@ function addonFromOption(option, quantity) {
   return found ? round2(total) : null;
 }
 
-/** Totals across every line in a plan, with reserves counted against budget. */
-function totalPlan(legs, reserves = []) {
+/** Totals across every line in a plan, with taxable charges and reserves counted. */
+function totalPlan(legs, reserves = [], charges = []) {
   let net = 0;
   let gst = 0;
   for (const leg of legs) {
@@ -225,10 +264,15 @@ function totalPlan(legs, reserves = []) {
       gst += Number(line.gst) || 0;
     }
   }
+  for (const charge of charges) {
+    net += Number(charge.net) || 0;
+    gst += Number(charge.gst) || 0;
+  }
   const reserveTotal = reserves.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   return {
     net: round2(net),
     gst: round2(gst),
+    charges: round2(charges.reduce((sum, charge) => sum + (Number(charge.total) || 0), 0)),
     reserves: round2(reserveTotal),
     total: round2(net + gst + reserveTotal)
   };
@@ -255,5 +299,6 @@ module.exports = {
   quantityFloor,
   unitsForBudget,
   round2,
-  DEFAULT_GST
+  DEFAULT_GST,
+  lineCatalogFields
 };

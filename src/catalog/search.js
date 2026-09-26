@@ -20,7 +20,7 @@
 const { rows, one } = require('../pg');
 
 const DEFAULT_LIMIT = 40;
-const MAX_LIMIT = 200;
+const MAX_LIMIT = 500;
 const OPTIONS_PER_PRODUCT = 6;
 
 /** Always an array of trimmed strings, whatever the caller passed. */
@@ -62,7 +62,7 @@ function optionsSubquery({ filtered = true, limit = OPTIONS_PER_PRODUCT } = {}) 
   (
     select coalesce(json_agg(o order by o.offer_rate), '[]'::json)
       from (
-        select po.id, po.sku, po.name, po.offer_rate, po.buying_rate,
+        select po.id, po.sku, po.name, po.template, po.offer_rate, po.buying_rate,
                po.discounted_rate, po.minimum_billing, po.pricing_unit,
                po.gst, po.on_request, po.attrs, po.units, po.addons
           from masters.price_options po
@@ -74,8 +74,6 @@ function optionsSubquery({ filtered = true, limit = OPTIONS_PER_PRODUCT } = {}) 
       ) o
   ) as price_options`;
 }
-
-const OPTIONS_SUBQUERY = optionsSubquery();
 
 /**
  * Finds products.
@@ -90,6 +88,7 @@ const OPTIONS_SUBQUERY = optionsSubquery();
 async function searchProducts(params = {}) {
   const q = params.q ? String(params.q).trim() : null;
   const limit = clamp(params.limit, DEFAULT_LIMIT, MAX_LIMIT);
+  const optionsPerProduct = clamp(params.optionsPerProduct, OPTIONS_PER_PRODUCT, 200);
   const pricedOnly = params.pricedOnly !== false;
 
   const args = {
@@ -117,7 +116,7 @@ async function searchProducts(params = {}) {
            (select count(*) from masters.price_options po
              where po.product_id = p.id and po.status = 1
                and po.offer_rate is not null and po.offer_rate > 0) as priced_options,
-           ${OPTIONS_SUBQUERY}
+           ${optionsSubquery({ limit: optionsPerProduct })}
       from masters.products p
      where p.status = 1
        and ($media::text[]  is null or p.media_type = any($media::text[]))

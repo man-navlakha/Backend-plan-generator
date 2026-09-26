@@ -53,13 +53,32 @@ const CLIENT_BRIEF_SCHEMA = {
       type: 'array',
       items: { type: 'string' }
     },
+    preferred_catchments: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Neighbourhoods, corridors, malls, and local catchment preferences; not cities.'
+    },
     remarks_for_media: {
       anyOf: [{ type: 'string' }, { type: 'null' }],
       description: 'Media requirements, constraints, preferences, dates, and other planning details.'
     },
+    requested_publications: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'For Magazine briefs, every publication explicitly named by the client, preserving its wording.'
+    },
     duration_months: {
       anyOf: [{ type: 'integer' }, { type: 'null' }],
-      description: 'Campaign duration in whole months only when explicitly stated or directly convertible.'
+      description: 'Whole months only when the brief states months. Do not convert weeks to months.'
+    },
+    duration_weeks: {
+      anyOf: [{ type: 'integer' }, { type: 'null' }],
+      description: 'Whole weeks when the brief states weeks. Do not convert weeks to months.'
+    },
+    creative_duration_seconds: {
+      anyOf: [{ type: 'integer' }, { type: 'null' }],
+      description: 'Ad-film or slide duration in seconds when explicitly stated, otherwise null.'
     },
     service_conflict: {
       type: 'boolean',
@@ -82,8 +101,12 @@ const CLIENT_BRIEF_SCHEMA = {
     'campaign_objective',
     'target_audience',
     'target_locations',
+    'preferred_catchments',
     'remarks_for_media',
+    'requested_publications',
     'duration_months',
+    'duration_weeks',
+    'creative_duration_seconds',
     'service_conflict',
     'service_conflict_reason',
     'warnings'
@@ -104,8 +127,17 @@ Rules:
   a null budget only when no usable amount is stated or amounts genuinely contradict each other.
 - Keep client constraints and additional planning details in remarks_for_media. Do not silently
   discard dates, exclusions, preferences, deliverables, or special instructions.
-- A duration may be converted to whole months only when that conversion is direct. Otherwise leave
-  duration_months null and retain the original wording in remarks_for_media.
+- For Magazine, copy every explicitly named title (especially titles under "Remarks for Magazine")
+  into requested_publications. These titles are mandatory requirements, not examples and not
+  permission to substitute a similar publication. For other media return an empty array.
+- A CRM "Sub-deal value" or "Deal value" is not the campaign budget. If the field labelled Budget
+  is blank or shown as a dash, return a null budget even when those commercial values are present.
+- Keep cities/states/regions in target_locations. Put neighbourhoods, corridors, malls, and local
+  areas named as catchments in preferred_catchments, not target_locations.
+- Preserve the unit of duration. Four weeks means duration_weeks 4 and duration_months null. Two
+  months means duration_months 2 and duration_weeks null. Never convert weeks into months.
+- Extract the ad-film or slide length separately as creative_duration_seconds when the brief says,
+  for example, "10-second ad film". Do not confuse it with campaign duration.
 - Do not evaluate catalog availability and do not choose inventory. A later model does that against
   the agency's rate card.
 - The user message contains requested_service separately from client_brief. Set service_conflict true
@@ -153,12 +185,104 @@ function extractBudgetRange(clientBrief) {
   };
 }
 
+function extractDurationWeeks(clientBrief) {
+  const match = String(clientBrief || '').match(/\b(\d+)\s*weeks?\b/i);
+  if (!match) return null;
+  const weeks = Number(match[1]);
+  return Number.isInteger(weeks) && weeks > 0 ? weeks : null;
+}
+
+function extractCreativeDurationSeconds(clientBrief) {
+  const match = String(clientBrief || '').match(/\b(\d+)\s*(?:-|–|—)?\s*(?:seconds?|secs?)\b/i);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
+}
+
+function extractPreferredCatchments(clientBrief) {
+  const match = String(clientBrief || '').match(/preferred\s+catchments?\s*:\s*([^\.\r\n]+)/i);
+  if (!match) return [];
+  return cleanStringArray(match[1].split(','));
+}
+
+function stripMarkdown(value) {
+  return String(value || '')
+    .replace(/^\s*#+\s*/, '')
+    .replace(/^\s*\*\*|\*\*\s*$/g, '')
+    .trim();
+}
+
+function cleanPublicationName(value) {
+  return stripMarkdown(value)
+    .replace(/^["'\u201c\u201d\u2018\u2019]+|["'\u201c\u201d\u2018\u2019]+$/g, '')
+    .replace(/[\u2019']s\s*$/i, '')
+    .trim();
+}
+
+/** Publications explicitly requested in the CRM's Magazine remarks field. */
+function extractRequestedPublications(clientBrief) {
+  const lines = String(clientBrief || '').replace(/\r/g, '').split('\n');
+  let value = '';
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = stripMarkdown(lines[index]);
+    const match = /remarks\s+for\s+magazine\s*:?[\s]*(.*)$/i.exec(line);
+    if (!match) continue;
+    value = stripMarkdown(match[1]);
+    if (!value) {
+      for (let next = index + 1; next < lines.length; next += 1) {
+        value = stripMarkdown(lines[next]);
+        if (value) break;
+      }
+    }
+    break;
+  }
+
+  if (!value) return [];
+  const bulletParts = value
+    .split(/\s*\\?\*\s*/)
+    .map(cleanPublicationName)
+    .filter(Boolean);
+  // CRM remarks often contain an explanatory sentence followed by asterisks:
+  // "Need a proactive plan ... * Forbes India * The Week". The prose before
+  // the first bullet is not a publication name.
+  if (bulletParts.length > 1) return cleanStringArray(bulletParts.slice(1));
+
+  return cleanStringArray(
+    value
+      .replace(/^[:\u2013\u2014\-\s]+/, '')
+      .split(/\s*(?:,|;|\band\b)\s*/i)
+      .map(cleanPublicationName)
+      .filter(Boolean)
+  );
+}
+
+/** True only for an explicitly empty CRM field labelled exactly "Budget". */
+function hasExplicitBlankBudget(clientBrief) {
+  const lines = String(clientBrief || '').replace(/\r/g, '').split('\n').map(stripMarkdown);
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = /^budget\s*:?[\s]*(.*)$/i.exec(lines[index]);
+    if (!match) continue;
+    let value = match[1].trim();
+    if (!value) {
+      for (let next = index + 1; next < lines.length; next += 1) {
+        value = lines[next].trim();
+        if (value) break;
+      }
+    }
+    return /^(?:[-\u2013\u2014]+|n\/?a|nil|none)$/i.test(value);
+  }
+  return false;
+}
+
 /** Normalize model output again at the trust boundary. */
 function normalizeReview(value) {
   const suppliedBudget = Number(value?.budget);
   const suppliedMin = Number(value?.budget_min);
   const suppliedMax = Number(value?.budget_max);
   const duration = Number(value?.duration_months);
+  const durationWeeks = Number(value?.duration_weeks);
+  const creativeDurationSeconds = Number(value?.creative_duration_seconds);
   const budgetMin = Number.isFinite(suppliedMin) && suppliedMin > 0 ? suppliedMin : null;
   const budgetMax = Number.isFinite(suppliedMax) && suppliedMax > 0 ? suppliedMax : null;
   const budget =
@@ -174,14 +298,27 @@ function normalizeReview(value) {
     campaign_objective: cleanText(value?.campaign_objective),
     target_audience: cleanText(value?.target_audience),
     target_locations: cleanStringArray(value?.target_locations),
+    preferred_catchments: cleanStringArray(value?.preferred_catchments),
     remarks_for_media: cleanText(value?.remarks_for_media),
+    requested_publications: cleanStringArray(value?.requested_publications).map(cleanPublicationName),
     duration_months:
-      Number.isInteger(duration) && duration > 0 ? duration : undefined
+      Number.isInteger(duration) && duration > 0 ? duration : undefined,
+    duration_weeks:
+      Number.isInteger(durationWeeks) && durationWeeks > 0 ? durationWeeks : undefined,
+    creative_duration_seconds:
+      Number.isInteger(creativeDurationSeconds) && creativeDurationSeconds > 0
+        ? creativeDurationSeconds
+        : undefined
   };
 
+  /*
+   * Only the company is required. A brief with no budget is a normal request,
+   * not an incomplete one: the desk asks for the inventory that matches a brief
+   * and quotes it before a number exists. buildPlan reads the absent budget as
+   * a request for the inventory sheet rather than a costed plan.
+   */
   const missingFields = [];
   if (!brief.company) missingFields.push('company');
-  if (!brief.budget) missingFields.push('budget');
 
   return {
     brief,
@@ -250,6 +387,37 @@ async function reviewClientBrief(clientBrief, options = {}) {
     ]);
   }
 
+  if (!deterministicRange && hasExplicitBlankBudget(clientBrief)) {
+    normalized.brief.budget = null;
+    normalized.brief.budget_min = null;
+    normalized.brief.budget_max = null;
+  }
+
+  const deterministicPublications = extractRequestedPublications(clientBrief);
+  if (deterministicPublications.length) {
+    normalized.brief.requested_publications = deterministicPublications;
+  }
+
+  const deterministicWeeks = extractDurationWeeks(clientBrief);
+  if (deterministicWeeks) {
+    normalized.brief.duration_weeks = deterministicWeeks;
+    normalized.brief.duration_months = undefined;
+  }
+
+  const deterministicCreativeSeconds = extractCreativeDurationSeconds(clientBrief);
+  if (deterministicCreativeSeconds) {
+    normalized.brief.creative_duration_seconds = deterministicCreativeSeconds;
+  }
+
+  const deterministicCatchments = extractPreferredCatchments(clientBrief);
+  if (deterministicCatchments.length) {
+    const catchmentSet = new Set(deterministicCatchments.map((value) => value.toLowerCase()));
+    normalized.brief.preferred_catchments = deterministicCatchments;
+    normalized.brief.target_locations = normalized.brief.target_locations.filter(
+      (value) => !catchmentSet.has(value.toLowerCase())
+    );
+  }
+
   return {
     ...normalized,
     model,
@@ -264,6 +432,11 @@ module.exports = {
   reviewClientBrief,
   normalizeReview,
   extractBudgetRange,
+  extractDurationWeeks,
+  extractCreativeDurationSeconds,
+  extractPreferredCatchments,
+  extractRequestedPublications,
+  hasExplicitBlankBudget,
   isConfigured,
   MODEL,
   CLIENT_BRIEF_SCHEMA

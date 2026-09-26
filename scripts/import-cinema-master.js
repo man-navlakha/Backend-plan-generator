@@ -1,200 +1,766 @@
-process.env.DB_READONLY = '0';
-const fs = require('fs');
+/**
+ * Loads the PAN-India cinema rate cards into Postgres as the Cinema catalog.
+ *
+ *   node --env-file=.env scripts/import-cinema-master.js [--dry]
+ *
+ * Two workbooks, one catalog (`cinema`, media_type `cinema`):
+ *
+ *   pan_india_2025  src/assets/Masters/Cinema/Cinema PAN India 07-04-2025 old.xlsx
+ *                   26 state sheets, 10,118 screens. Fields almost complete. The only
+ *                   source for UFO (3,993 screens) and Khushi (5).
+ *
+ *   from_csvs_2026  src/assets/Masters/Cinema/Cinema_PAN_India_From_CSVs.xlsx
+ *                   33 state sheets, 10,547 screens, generated from the current master
+ *                   CSVs. Newer rates and 8 more states, but sparse: 97% have no
+ *                   locality, 45% no pincode, 48% no audi type, 30% no seats.
+ *
+ * Nothing is dropped and nothing is skipped for being incomplete. Every row of both
+ * workbooks becomes a row here, because the point is to have somewhere to fix them:
+ * a blank field is recorded as a finding in masters.data_quality_issues, so the desk
+ * can list what is missing, fill it in the workbook, and re-import.
+ *
+ * Where the same screen is in both workbooks (matched on screen code) the rows are
+ * linked rather than merged:
+ *
+ *   - Blanks are filled across the link. Only blanks -- a stated value is never
+ *     overwritten, and every fill is recorded in attrs.filled_from so it is obvious
+ *     which workbook a value came from.
+ *   - The newer row stays quotable (`status = 1`). The older one is kept but set
+ *     `status = 0`, which every search already filters on, so a plan cannot quote
+ *     the same screen twice at two prices. It stays visible for comparison and can
+ *     be promoted by changing one column.
+ *   - Where the two disagree on the rate they are quoting -- which they do on
+ *     virtually every shared screen -- that is recorded as a finding rather than
+ *     silently resolved.
+ *
+ * Rates. Both workbooks' rate column is a price for ten seconds for one week, and the
+ * costing engine multiplies rate x seconds x weeks, so offer_rate is the column
+ * divided by ten (per second per week) exactly as the `cinema` master stores it. The
+ * printed figure is kept in attrs.rate_10s_week.
+ *
+ * One honest wart, verified against the source CSVs: from_csvs_2026's column is headed
+ * "A/V Slide" but 99.5% of its rates are the master's **Ad Film** offer rate x 10, not
+ * the Slide rate. Ad Film costs more. The rows are therefore stored with
+ * template 'Ad Film (labelled A/V Slide in source)' rather than pretending otherwise.
+ *
+ * The script is re-runnable and scoped: it rebuilds `cinema` inside one
+ * transaction and touches no other catalog and nothing in app.*.
+ */
+
 const path = require('path');
-const ExcelJS = require('exceljs');
-const { db, DB_PATH, initializeSchema, finalize } = require('../src/cinema-db');
+const { getPool, query, close } = require('../src/pg');
+const { readCinemaSheetWorkbook } = require('./lib/read-cinema-sheet-workbook');
 
-const workbookPath = path.resolve(process.argv[2] || path.join(__dirname, '../src/assets/Masters/Cinema/New Cinema Master Final.xlsx'));
-const imageDirectory = path.join(path.dirname(workbookPath), 'Images');
-const COLUMNS = { Product: 19, Location: 8, 'Price Option': 18, 'Price Unit': 11,
-  'Offer Rate Source': 8, 'Qube Rate Card': 2 };
+const DRY = process.argv.includes('--dry');
 
-function value(cell) {
-  const input = cell.value;
-  if (input == null) return null;
-  if (typeof input !== 'object') return input;
-  if (Array.isArray(input.richText)) return input.richText.map((part) => part.text).join('');
-  if (Object.hasOwn(input, 'result')) return input.result;
-  if (Object.hasOwn(input, 'text')) return input.text;
-  if (input instanceof Date) return input.toISOString();
-  return null;
-}
-const text = (input) => input == null || input === '' ? null : String(input).trim();
-function number(input) {
-  if (input == null || input === '') return null;
-  const parsed = Number(String(input).replace(/,/g, ''));
-  return Number.isFinite(parsed) ? parsed : null;
-}
+const CATALOG = 'cinema';
+const LABEL = 'Cinema (PAN India)';
+const FAMILY = 'cinema';
+const MEDIA_TYPE = 'cinema';
+const MEDIA_LABEL = 'Cinema';
 
-function forRows(sheet, start, callback) {
-  if (!sheet) throw new Error('Workbook is missing a required sheet');
-  const lastRow = sheet.actualRowCount;
-  for (let sourceRow = start; sourceRow <= lastRow; sourceRow += 1) {
-    const row = sheet.getRow(sourceRow);
-    const cells = Array.from({ length: COLUMNS[sheet.name] }, (_, index) => value(row.getCell(index + 1)));
-    if (cells.some((cell) => cell != null && cell !== '')) callback(cells, sourceRow);
+const MASTERS = path.join(__dirname, '..', 'src', 'assets', 'Masters', 'Cinema');
+
+/**
+ * The workbooks, oldest first. `precedence` decides which row stays quotable when the
+ * same screen is in both: higher wins. Ids are offset per source so a re-import lands
+ * on the same ids and a stored plan keeps pointing at the row it was priced from.
+ */
+const SOURCES = [
+  {
+    key: 'pan_india_2025',
+    label: 'PAN India card, 07-04-2025',
+    file: path.join(MASTERS, 'Cinema PAN India 07-04-2025 old.xlsx'),
+    offset: 80_000_000,
+    precedence: 1,
+    template: '10 Sec A/V Slide',
+    rate_basis: 'workbook column "Rates for 10 Sec :A/V Slide  (1 Week)"'
+  },
+  {
+    key: 'from_csvs_2026',
+    label: 'Generated from current master CSVs, 2026',
+    file: path.join(MASTERS, 'Cinema_PAN_India_From_CSVs.xlsx'),
+    offset: 81_000_000,
+    precedence: 2,
+    template: 'Ad Film (labelled A/V Slide in source)',
+    rate_basis: 'workbook column "Rates for 10 Sec :A/V Slide  (1 Week)", '
+      + 'verified to be the master Ad Film offer rate x 10'
   }
+];
+
+const ACTIVITY_SECONDS = 10;
+const GST = 18;
+
+/** Column positions, identical in both workbooks. Column A is a spacer. */
+const COLS = {
+  sr: 2, state: 3, city: 4, screen_code: 5, locality: 6, pincode: 7,
+  theatre_type: 8, multiplex: 9, address: 10, tier: 11, capacity_pref: 12,
+  total_screen: 13, audi_no: 14, audi_type: 15, chain: 16, seats: 17, rate: 18
+};
+
+/** Fields a row can be missing, with the client-sheet heading each one feeds. */
+const FILLABLE = {
+  city: 'City',
+  locality: 'Locality',
+  pincode: 'Pincode',
+  theatre_type: 'Theatre Type',
+  address: 'Address',
+  tier: 'TIER',
+  capacity_pref: 'Capacity Preference',
+  total_screen: 'Total Screen',
+  audi_no: 'Audi No',
+  audi_type: 'Audi Type',
+  chain: 'Cinema Chain',
+  seats: 'Seating Capacity',
+  rate: 'Rates for 10 Sec :A/V Slide  (1 Week)'
+};
+
+/** Fields whose absence stops the row being quotable or placeable. */
+const SEVERITY = { rate: 'error', city: 'error', chain: 'warning' };
+
+const ZONE = {
+  'andaman and nicobar islands': 'South', 'andaman nicobar': 'South',
+  'andhra pradesh': 'South', 'arunachal pradesh': 'North East', assam: 'North East',
+  bihar: 'East', chandigarh: 'North', chhattisgarh: 'Central',
+  'daman and diu': 'West', delhi: 'North', goa: 'West', gujarat: 'West',
+  haryana: 'North', 'himachal pradesh': 'North', 'jammu and kashmir': 'North',
+  jharkhand: 'East', karnataka: 'South', kerala: 'South', ladakh: 'North',
+  'madhya pradesh': 'Central', maharashtra: 'West', manipur: 'North East',
+  meghalaya: 'North East', mizoram: 'North East', nagaland: 'North East',
+  odisha: 'East', puducherry: 'South', punjab: 'North', rajasthan: 'North',
+  sikkim: 'North East', 'tamil nadu': 'South', telangana: 'South',
+  tripura: 'North East', uttarakhand: 'North', 'uttar pradesh': 'North',
+  'west bengal': 'East'
+};
+
+const STATE_ALIAS = {
+  tamilnadu: 'Tamil Nadu',
+  'j&k': 'Jammu and Kashmir',
+  'j k': 'Jammu and Kashmir',
+  'jammu & kashmir': 'Jammu and Kashmir',
+  'jammu and kashmir': 'Jammu and Kashmir',
+  chhatisgarh: 'Chhattisgarh',
+  mp: 'Madhya Pradesh',
+  orissa: 'Odisha',
+  pondicherry: 'Puducherry',
+  'andaman & nicobar': 'Andaman and Nicobar Islands',
+  'andaman and nicobar': 'Andaman and Nicobar Islands'
+};
+
+const CHAIN_ALIAS = {
+  'pvr-inox': 'PVR-INOX', 'pvr inox': 'PVR-INOX', pvrinox: 'PVR-INOX',
+  kss: 'KSS', ufo: 'UFO', qube: 'Qube', cinepolis: 'Cinepolis',
+  miraj: 'Miraj', ny: 'NY', khushi: 'Khushi'
+};
+
+const FOOTER = /^(total screens|actual cost|making & conversion|sub total|gst @|total cost)/i;
+
+// ───────────────────────────── helpers ─────────────────────────────
+
+function num(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).replace(/[,\s]/g, '').replace(/₹/g, '');
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function int(value) {
+  const n = num(value);
+  return n === null ? null : Math.trunc(n);
+}
+
+function searchText(parts) {
+  return parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim().slice(0, 2000);
+}
+
+function titleCase(value) {
+  return String(value || '').toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
+function canonState(value) {
+  if (!value) return null;
+  const key = String(value).toLowerCase().replace(/\s+/g, ' ').trim();
+  return STATE_ALIAS[key] || titleCase(value);
+}
+
+function canonChain(value) {
+  if (!value) return null;
+  return CHAIN_ALIAS[String(value).toLowerCase().trim()] || titleCase(value);
+}
+
+/** The key two workbooks are matched on. Screen codes differ only in case and spacing. */
+function codeKey(value) {
+  if (!value) return null;
+  const k = String(value).toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  return k === '' ? null : k;
+}
+
+function venueKey(row) {
+  return [row.state, row.city, row.multiplex, row.pincode]
+    .map((v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim())
+    .join('|');
+}
+
+// ───────────────────────────── the read ─────────────────────────────
+
+/**
+ * Data rows of one workbook.
+ *
+ * The header row is found by its "Sr. No." marker rather than assumed -- across the
+ * two files it sits on row 14, 15 or 31. A data row is one whose Sr. No. is a positive
+ * integer that also names a screen or a theatre, which removes the six footer rows
+ * without needing to know where the data stops.
+ */
+async function readSource(source) {
+  const { sheets, reader } = await readCinemaSheetWorkbook(source.file);
+  const rows = [];
+  const perSheet = [];
+
+  for (const sheet of sheets) {
+    let headerRow = null;
+    for (const [r, cells] of sheet.rows) {
+      for (const [, value] of cells) {
+        if (/sr\.?\s*no/i.test(value)) { headerRow = r; break; }
+      }
+      if (headerRow) break;
+    }
+
+    let kept = 0;
+    let skipped = 0;
+    for (const [r, cells] of sheet.rows) {
+      if (headerRow && r <= headerRow) continue;
+
+      const raw = {};
+      for (const [key, col] of Object.entries(COLS)) raw[key] = cells.get(col) ?? null;
+
+      const sr = num(raw.sr);
+      const isData = sr !== null && Number.isInteger(sr) && sr > 0
+        && (raw.screen_code || raw.multiplex);
+
+      if (!isData) {
+        if (!FOOTER.test(raw.sr || raw.state || '')) skipped += 1;
+        continue;
+      }
+
+      rows.push({ ...raw, source: source.key, sheet: sheet.name, source_row: r, sr });
+      kept += 1;
+    }
+
+    perSheet.push({ sheet: sheet.name, header_row: headerRow, rows: kept, skipped });
+  }
+
+  return { rows, perSheet, reader };
+}
+
+// ───────────────────────── linking and gap filling ─────────────────────────
+
+/**
+ * Links the same screen across the two workbooks and fills blanks across the link.
+ *
+ * Matching is on screen code, and only where the code occurs exactly once in each
+ * workbook. Codes are reused -- 141 rows in the 2025 card repeat one -- and a reused
+ * code is not evidence of the same screen, so an ambiguous code is left unlinked and
+ * flagged rather than guessed at.
+ *
+ * A link must also stay inside one state. Every link this produces today already does
+ * (checked: 4,397 of 4,397, with 4,203 also agreeing closely on the theatre name), so
+ * the guard changes nothing now -- it is here so a future workbook cannot quietly
+ * marry two unrelated screens that happen to share an aggregator code.
+ *
+ * Linked rows often disagree on the cinema chain, and that is not a mismatch: the
+ * chain here is the ad-delivery network, and several theatres moved from UFO to Qube
+ * or KSS between the two cards. Same screen, new distributor. It is recorded rather
+ * than treated as an error.
+ *
+ * Returns the number of links made and mutates the rows: `linked_to`, `filled_from`
+ * and `superseded` appear on the rows that earned them.
+ */
+function linkSources(bySource) {
+  const [older, newer] = SOURCES.map((s) => bySource.get(s.key));
+
+  const index = (rows) => {
+    const map = new Map();
+    for (const row of rows) {
+      const key = codeKey(row.screen_code);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+    }
+    return map;
+  };
+
+  const oldIndex = index(older);
+  const newIndex = index(newer);
+
+  const stats = {
+    linked: 0, ambiguous: 0, filled: 0, rateConflicts: 0,
+    chainChanges: 0, crossState: 0
+  };
+
+  for (const [key, newRows] of newIndex) {
+    const oldRows = oldIndex.get(key);
+    if (!oldRows) continue;
+
+    if (newRows.length !== 1 || oldRows.length !== 1) {
+      // The code is in both workbooks but is not unique in at least one of them.
+      for (const row of [...newRows, ...oldRows]) row.ambiguous_code = key;
+      stats.ambiguous += newRows.length + oldRows.length;
+      continue;
+    }
+
+    const newRow = newRows[0];
+    const oldRow = oldRows[0];
+
+    // Same code, different state: not the same screen. Leave both quotable and say so.
+    if (canonState(newRow.state) !== canonState(oldRow.state)) {
+      newRow.cross_state_code = key;
+      oldRow.cross_state_code = key;
+      stats.crossState += 2;
+      continue;
+    }
+
+    const newChain = canonChain(newRow.chain);
+    const oldChain = canonChain(oldRow.chain);
+    if (newChain && oldChain && newChain !== oldChain) {
+      newRow.chain_was = oldChain;
+      oldRow.chain_now = newChain;
+      stats.chainChanges += 1;
+    }
+
+    newRow.linked_to = oldRow;
+    oldRow.linked_to = newRow;
+    stats.linked += 1;
+
+    // Fill blanks both ways. Only blanks.
+    for (const field of Object.keys(FILLABLE)) {
+      if (!newRow[field] && oldRow[field]) {
+        newRow[field] = oldRow[field];
+        (newRow.filled_from ||= {})[field] = oldRow.source;
+        stats.filled += 1;
+      } else if (!oldRow[field] && newRow[field]) {
+        oldRow[field] = newRow[field];
+        (oldRow.filled_from ||= {})[field] = newRow.source;
+        stats.filled += 1;
+      }
+    }
+
+    // The newer row is the one a plan may quote.
+    oldRow.superseded = true;
+
+    const a = num(oldRow.rate);
+    const b = num(newRow.rate);
+    if (a !== null && b !== null && a !== b) {
+      newRow.rate_conflict = a;
+      oldRow.rate_conflict = b;
+      stats.rateConflicts += 1;
+    }
+  }
+
+  return stats;
+}
+
+// ───────────────────────────── the transform ─────────────────────────────
+
+/**
+ * Turns linked workbook rows into `masters` rows.
+ *
+ * Product attribute names are the ones render/resolvers.js looks for first, because
+ * engine/cost.js spreads product attrs straight onto the plan line. All 17 columns of
+ * the Cinema client template are therefore filled from the catalog rather than inferred.
+ */
+function transform(bySource) {
+  const products = [];
+  const priceOptions = [];
+  const issues = [];
+
+  for (const source of SOURCES) {
+    const rows = bySource.get(source.key);
+    const seenCode = new Map();
+
+    rows.forEach((row, index) => {
+      const id = source.offset + index + 1;
+      const state = canonState(row.state);
+      const chain = canonChain(row.chain);
+      const city = row.city ? titleCase(row.city) : null;
+      const pincode = /^\d{6}$/.test(String(row.pincode || '').trim())
+        ? int(row.pincode) : null;
+      const seats = int(row.seats);
+      const totalScreen = int(row.total_screen);
+      const audiNo = int(row.audi_no);
+
+      const printed = num(row.rate);
+      const perSecond = printed !== null && printed > 0
+        ? Math.round((printed / ACTIVITY_SECONDS) * 100) / 100
+        : null;
+
+      // A superseded row stays in the catalog but out of every search: status is what
+      // searchProducts filters on, so this is how the same screen avoids being quoted
+      // twice at two prices.
+      const status = row.superseded ? 0 : 1;
+
+      const name = audiNo && row.multiplex
+        ? `${row.multiplex} - Audi ${audiNo}`
+        : row.multiplex || row.screen_code;
+
+      products.push({
+        id,
+        catalog: CATALOG,
+        family: FAMILY,
+        media_type: MEDIA_TYPE,
+        media_label: MEDIA_LABEL,
+        source_row: row.source_row,
+        sku: row.screen_code,
+        name,
+        description: row.address,
+        image_url: null,
+        status,
+        sort_order: row.sr,
+        country: 'India',
+        state,
+        city,
+        locality: row.locality,
+        zone: state ? ZONE[state.toLowerCase()] || null : null,
+        location_source: city ? 'master' : 'none',
+        attrs: JSON.stringify({
+          screen_code: row.screen_code,
+          multiplex_name: row.multiplex,
+          address: row.address,
+          pincode,
+          theatre_type: row.theatre_type,
+          tier: row.tier,
+          capacity_preference: row.capacity_pref,
+          total_screen: totalScreen,
+          audi_no: audiNo,
+          audi_type: row.audi_type,
+          cinema_chain: chain,
+          seating_capacity: seats,
+          // Provenance: which workbook, which row, what it printed, what was borrowed
+          // from the other workbook, and what the other workbook quoted instead.
+          rate_10s_week: printed,
+          activity_seconds: ACTIVITY_SECONDS,
+          source_file: source.key,
+          source_sheet: row.sheet,
+          venue_key: venueKey(row),
+          filled_from: row.filled_from || null,
+          superseded: row.superseded ? true : null,
+          linked_screen_code: row.linked_to ? row.linked_to.screen_code : null,
+          other_source_rate_10s_week: row.rate_conflict ?? null
+        }),
+        search_text: searchText([
+          name, row.screen_code, chain, row.theatre_type, row.audi_type,
+          city, state, row.locality, row.address, 'cinema'
+        ])
+      });
+
+      priceOptions.push({
+        id,
+        product_id: id,
+        catalog: CATALOG,
+        family: FAMILY,
+        media_type: MEDIA_TYPE,
+        source_row: row.source_row,
+        sku: row.screen_code ? `${row.screen_code}-${source.key}` : null,
+        name: '10 Sec A/V Slide',
+        template: source.template,
+        // Neither card states a per-screen minimum billing, unlike the live cinema
+        // master's flat 10,000. Inventing one would inflate small plans.
+        minimum_billing: null,
+        offer_rate: perSecond,
+        buying_rate: null,
+        discounted_rate: null,
+        pricing_unit: 'per week per second',
+        gst: GST,
+        on_request: false,
+        status,
+        sort_order: row.sr,
+        image_url: null,
+        units: JSON.stringify([
+          { unit: '#Second(s)', code: 'SECOND', step: 5, minimum: ACTIVITY_SECONDS, maximum: null },
+          { unit: '#Week(S)', code: 'WEEK', step: 1, minimum: 1, maximum: null }
+        ]),
+        attrs: JSON.stringify({
+          activity: '10 Sec A/V Format',
+          quoted_duration: '4 Weeks',
+          rate_10s_week: printed,
+          source_file: source.key
+        }),
+        addons: '[]',
+        variants: '[]',
+        rate_sources: JSON.stringify(
+          printed === null ? [] : [{
+            basis: source.rate_basis,
+            source_rate: printed,
+            divide_by: ACTIVITY_SECONDS,
+            offer_rate: perSecond
+          }]
+        )
+      });
+
+      const issue = (severity, code, field, current, message) => issues.push({
+        catalog: CATALOG,
+        entity_type: 'product',
+        product_id: id,
+        price_option_id: null,
+        source_sheet: `${source.key}:${row.sheet}`,
+        source_row: row.source_row,
+        severity,
+        code,
+        field,
+        current_value: current === null || current === undefined ? null : String(current),
+        suggested_value: null,
+        message
+      });
+
+      /*
+       * Every blank field is registered, not just the ones that break costing.
+       *
+       * This is the register the desk works from: `select field, count(*) ... group by
+       * field` says what to go and fill, and a re-import clears what was fixed. The
+       * 2026 workbook is missing 26,522 field values, so leaving them unrecorded would
+       * mean the gaps exist but nothing can find them.
+       */
+      for (const [field, heading] of Object.entries(FILLABLE)) {
+        if (row[field]) continue;
+        issue(
+          SEVERITY[field] || 'warning',
+          `MISSING_${field.toUpperCase()}`,
+          heading,
+          null,
+          `${heading} is blank in ${source.key}`
+            + (row.linked_to ? ' and in the linked row of the other workbook.' : '.')
+        );
+      }
+
+      if (printed !== null && printed <= 0) {
+        issue('error', 'INVALID_RATE', FILLABLE.rate, row.rate,
+          'Rate is present but not a positive number, so this screen cannot be quoted.');
+      }
+      if (row.pincode && pincode === null) {
+        issue('warning', 'INVALID_PINCODE', 'Pincode', row.pincode,
+          'Pincode is present but not a six-digit number.');
+      }
+      if (row.seats && !(seats > 0)) {
+        issue('warning', 'INVALID_SEATS', 'Seating Capacity', row.seats,
+          'Seating capacity is present but not a positive number.');
+      }
+      if (row.tier && !/^T[1-4]$/i.test(row.tier)) {
+        issue('warning', 'INVALID_TIER', 'TIER', row.tier,
+          'Tier is not T1-T4; the Tier and Capacity Preference columns look transposed.');
+      }
+      if (row.capacity_pref && !/^S\d{1,2}$/i.test(row.capacity_pref)) {
+        issue('warning', 'INVALID_CAPACITY_PREFERENCE', 'Capacity Preference',
+          row.capacity_pref, 'Capacity preference is not in S1-S16 form.');
+      }
+      if (row.rate_conflict !== undefined && !row.superseded) {
+        issue('warning', 'RATE_DISAGREES_ACROSS_SOURCES', FILLABLE.rate, printed,
+          `The other workbook quotes ${row.rate_conflict} for this screen code. `
+            + 'The newer figure is the one being quoted.');
+      }
+      if (row.ambiguous_code) {
+        issue('warning', 'AMBIGUOUS_SCREEN_CODE', 'Screen Code', row.screen_code,
+          'This screen code is in both workbooks but is not unique in one of them, '
+            + 'so the rows could not be linked and may duplicate a screen.');
+      }
+      if (row.cross_state_code) {
+        issue('warning', 'SCREEN_CODE_CROSSES_STATES', 'Screen Code', row.screen_code,
+          'The other workbook uses this screen code in a different state, so the rows '
+            + 'were not treated as the same screen.');
+      }
+      // Not a fault: the chain is the ad-delivery network and it does change hands.
+      // Recorded because a desk comparing the two cards will want to know.
+      if (row.chain_was) {
+        issue('warning', 'CHAIN_CHANGED_ACROSS_SOURCES', 'Cinema Chain', chain,
+          `The 2025 card delivered this screen through ${row.chain_was}.`);
+      }
+
+      const key = codeKey(row.screen_code);
+      if (key) {
+        const first = seenCode.get(key);
+        if (first) {
+          issue('warning', 'DUPLICATE_SCREEN_CODE', 'Screen Code', row.screen_code,
+            `Screen code repeats ${first.sheet} row ${first.source_row} in the same workbook.`);
+        } else {
+          seenCode.set(key, row);
+        }
+      }
+    });
+  }
+
+  return { products, priceOptions, issues };
+}
+
+// ───────────────────────────── the write ─────────────────────────────
+
+const PRODUCT_COLUMNS = [
+  'id', 'catalog', 'family', 'media_type', 'media_label', 'source_row', 'sku', 'name',
+  'description', 'image_url', 'status', 'sort_order', 'country', 'state', 'city',
+  'locality', 'zone', 'location_source', 'attrs', 'search_text'
+];
+
+const PO_COLUMNS = [
+  'id', 'product_id', 'catalog', 'family', 'media_type', 'source_row', 'sku', 'name',
+  'template', 'minimum_billing', 'offer_rate', 'buying_rate', 'discounted_rate',
+  'pricing_unit', 'gst', 'on_request', 'status', 'sort_order', 'image_url',
+  'units', 'attrs', 'addons', 'variants', 'rate_sources'
+];
+
+const ISSUE_COLUMNS = [
+  'catalog', 'entity_type', 'product_id', 'price_option_id', 'source_sheet',
+  'source_row', 'severity', 'code', 'field', 'current_value', 'suggested_value', 'message'
+];
+
+/** Batched multi-row INSERT, sized to stay under the 65,535 bound parameter cap. */
+async function insertRows(client, table, columns, rows, label) {
+  if (rows.length === 0) return 0;
+  const perRow = columns.length;
+  const batchSize = Math.max(1, Math.min(1000, Math.floor(60000 / perRow)));
+  let done = 0;
+
+  for (let start = 0; start < rows.length; start += batchSize) {
+    const slice = rows.slice(start, start + batchSize);
+    const params = [];
+    const tuples = slice.map((row, r) => {
+      const placeholders = columns.map((_, c) => `$${r * perRow + c + 1}`);
+      for (const col of columns) params.push(row[col] ?? null);
+      return `(${placeholders.join(',')})`;
+    });
+
+    await client.query(
+      `INSERT INTO ${table} (${columns.join(',')}) VALUES ${tuples.join(',')}
+       ON CONFLICT DO NOTHING`,
+      params
+    );
+    done += slice.length;
+    process.stdout.write(`\r  ${label}: ${done}/${rows.length}`);
+  }
+  process.stdout.write(`\r  ${label}: ${done}/${rows.length}\n`);
+  return done;
+}
+
+function tally(rows, key) {
+  const counts = new Map();
+  for (const row of rows) {
+    const value = typeof key === 'function' ? key(row) : row[key];
+    const label = value === null || value === undefined ? '(blank)' : String(value);
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
 }
 
 async function main() {
-  if (!fs.existsSync(workbookPath)) throw new Error(`Workbook not found: ${workbookPath}`);
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(workbookPath);
-  initializeSchema();
-  const images = new Set(fs.readdirSync(imageDirectory).map((name) => name.toLowerCase()));
-  const counts = {};
+  const bySource = new Map();
 
-  db.transaction(() => {
-    db.exec(`DELETE FROM data_quality_issues; DELETE FROM offer_rate_sources;
-      DELETE FROM qube_rate_card;
-      DELETE FROM price_units; DELETE FROM price_options; DELETE FROM locations;
-      DELETE FROM products; DELETE FROM import_metadata;`);
+  for (const source of SOURCES) {
+    const { rows, perSheet, reader } = await readSource(source);
+    bySource.set(source.key, rows);
+    const skipped = perSheet.reduce((n, s) => n + s.skipped, 0);
+    console.log(
+      `${source.key.padEnd(15)} ${String(rows.length).padStart(6)} screens  `
+        + `${String(perSheet.length).padStart(2)} sheets  reader=${reader.split(' ')[0]}`
+        + (skipped ? `  (${skipped} empty rows skipped)` : '')
+    );
+  }
 
-    const productBySku = new Map();
-    const optionBySku = new Map();
-    const addProduct = db.prepare(`INSERT INTO products (source_row,name,sku,description,meta_title,
-      meta_description,meta_keywords,image,sort_order,status,cinema_chain,screen_recommend,
-      audience_class,tier,seats,screen,rank,total_screen,google_map_location)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    counts.products = 0;
-    forRows(workbook.getWorksheet('Product'), 5, (r, sourceRow) => {
-      if (!text(r[1]) || !text(r[2])) return;
-      const result = addProduct.run(sourceRow, text(r[1]), text(r[2]), text(r[3]), text(r[4]),
-        text(r[5]), text(r[6]), text(r[7]), number(r[8]), number(r[9]) ?? 1,
-        text(r[10]), number(r[11]), text(r[12]), text(r[13]), number(r[14]),
-        text(r[15]), number(r[16]), number(r[17]), text(r[18]));
-      const sku = text(r[2]);
-      productBySku.set(sku, (productBySku.get(sku) || []).concat(Number(result.lastInsertRowid)));
-      counts.products += 1;
-    });
-    const unique = (map, sku) => (map.get(sku) || []).length === 1 ? map.get(sku)[0] : null;
+  const link = linkSources(bySource);
+  console.log(
+    `\nLinked ${link.linked} screens across the two workbooks by screen code; `
+      + `${link.ambiguous} rows left unlinked because the code is not unique.`
+  );
+  console.log(`Filled ${link.filled} blank fields across the link.`);
+  console.log(`${link.rateConflicts} linked screens disagree on the rate; the newer figure wins.`);
+  console.log(`${link.chainChanges} linked screens changed delivery network between the cards.`);
+  if (link.crossState) {
+    console.log(`${link.crossState} rows share a code across states and were not linked.`);
+  }
 
-    const addLocation = db.prepare(`INSERT INTO locations
-      (product_id,source_row,type,zone,state,city,locality) VALUES (?,?,?,?,?,?,?)`);
-    counts.locations = 0;
-    forRows(workbook.getWorksheet('Location'), 5, (r, sourceRow) => {
-      if (!text(r[2])) return;
-      addLocation.run(unique(productBySku, text(r[2])), sourceRow, text(r[3]), text(r[4]),
-        text(r[5]), text(r[6]), text(r[7]));
-      counts.locations += 1;
-    });
+  const { products, priceOptions, issues } = transform(bySource);
 
-    const addOption = db.prepare(`INSERT INTO price_options (product_id,source_row,product_name,
-      product_sku,name,sku,template,minimum_billing,offer_rate,buying_rate,discounted_rate,
-      pricing_unit,gst,on_request,description_html,media_gallery,image,sort_order,status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-    counts.price_options = 0;
-    forRows(workbook.getWorksheet('Price Option'), 5, (r, sourceRow) => {
-      if (!text(r[2]) || !text(r[3]) || !text(r[4])) return;
-      const result = addOption.run(unique(productBySku, text(r[2])), sourceRow, text(r[1]),
-        text(r[2]), text(r[3]), text(r[4]), text(r[5]), number(r[6]), number(r[7]),
-        number(r[8]), number(r[9]), text(r[10]), number(r[11]), text(r[12]),
-        text(r[13]), text(r[14]), text(r[15]), number(r[16]), number(r[17]) ?? 1);
-      const sku = text(r[4]);
-      optionBySku.set(sku, (optionBySku.get(sku) || []).concat(Number(result.lastInsertRowid)));
-      counts.price_options += 1;
-    });
+  const quotable = products.filter((p) => p.status === 1);
+  const priced = priceOptions.filter((o) => o.status === 1 && o.offer_rate > 0);
+  console.log(
+    `\n${products.length} products (${quotable.length} quotable, `
+      + `${products.length - quotable.length} superseded but kept), `
+      + `${priced.length} priced and quotable.`
+  );
+  console.log(`${issues.length} data-quality findings.`);
 
-    const addUnit = db.prepare(`INSERT INTO price_units (price_option_id,source_row,name,code,
-      step,minimum,maximum,sort_order) VALUES (?,?,?,?,?,?,?,?)`);
-    counts.price_units = 0;
-    forRows(workbook.getWorksheet('Price Unit'), 5, (r, sourceRow) => {
-      if (!text(r[4]) || !text(r[5])) return;
-      addUnit.run(unique(optionBySku, text(r[4])), sourceRow, text(r[5]), text(r[6]),
-        number(r[7]), number(r[8]), number(r[9]), number(r[10]));
-      counts.price_units += 1;
-    });
+  console.log('\nQuotable screens by source:');
+  for (const [k, n] of tally(quotable, (p) => JSON.parse(p.attrs).source_file)) {
+    console.log(`  ${k.padEnd(16)} ${n}`);
+  }
+  console.log('\nQuotable screens by chain:');
+  for (const [k, n] of tally(quotable, (p) => JSON.parse(p.attrs).cinema_chain)) {
+    console.log(`  ${k.padEnd(16)} ${n}`);
+  }
+  console.log('\nFindings by code:');
+  for (const [k, n] of tally(issues, 'code')) console.log(`  ${k.padEnd(34)} ${n}`);
 
-    const addSource = db.prepare(`INSERT INTO offer_rate_sources (price_option_id,source_row,
-      price_option_sku,product_name,screen,rate_source,basis,source_rate,divide_by,offer_rate)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`);
-    counts.rate_sources = 0;
-    forRows(workbook.getWorksheet('Offer Rate Source'), 2, (r, sourceRow) => {
-      if (!text(r[0])) return;
-      addSource.run(unique(optionBySku, text(r[0])), sourceRow, text(r[0]), text(r[1]),
-        text(r[2]), text(r[3]), text(r[4]), number(r[5]), number(r[6]), number(r[7]));
-      counts.rate_sources += 1;
-    });
+  if (DRY) {
+    console.log('\n--dry: nothing written.');
+    return;
+  }
 
-    const addRateCard = db.prepare(`INSERT INTO qube_rate_card
-      (source_row,section,name,rate) VALUES (?,?,?,?)`);
-    counts.qube_rate_card = 0;
-    forRows(workbook.getWorksheet('Qube Rate Card'), 1, (r, sourceRow) => {
-      const rate = number(r[1]);
-      const name = text(r[0]);
-      if (!name || rate == null) return;
-      const section = sourceRow < 37 ? 'state_default' : 'theatre_exception';
-      addRateCard.run(sourceRow, section, name, rate);
-      counts.qube_rate_card += 1;
-    });
+  const catalog = {
+    slug: CATALOG,
+    label: LABEL,
+    family: FAMILY,
+    workbook: SOURCES.map((s) => `Cinema/${path.basename(s.file)}`).join(' + '),
+    row_counts: JSON.stringify({
+      products: products.length,
+      quotable: quotable.length,
+      superseded: products.length - quotable.length,
+      price_options: priceOptions.length,
+      priced_options: priced.length,
+      issues: issues.length,
+      linked: link.linked,
+      filled_fields: link.filled,
+      sources: Object.fromEntries(SOURCES.map((s) => [s.key, bySource.get(s.key).length]))
+    })
+  };
 
-    audit(images);
-    const metadata = db.prepare('INSERT INTO import_metadata (key,value) VALUES (?,?)');
-    metadata.run('source_file', workbookPath);
-    metadata.run('imported_at', new Date().toISOString());
-    metadata.run('counts', JSON.stringify(counts));
-  })();
+  console.log('\nLoading into Postgres ...');
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM masters.data_quality_issues WHERE catalog=$1', [CATALOG]);
+    await client.query('DELETE FROM masters.catalogs WHERE slug=$1', [CATALOG]);
 
-  console.log(`Imported cinema master into ${DB_PATH}`);
-  console.table(counts);
-  console.table(db.prepare(`SELECT severity,COUNT(*) issues,COUNT(DISTINCT product_id) affected_products
-    FROM data_quality_issues GROUP BY severity`).all());
-  finalize();
+    await insertRows(client, 'masters.catalogs',
+      ['slug', 'label', 'family', 'workbook', 'row_counts'], [catalog], 'catalogs');
+    await insertRows(client, 'masters.products', PRODUCT_COLUMNS, products, 'products');
+    await insertRows(client, 'masters.price_options', PO_COLUMNS, priceOptions, 'price_options');
+    await insertRows(client, 'masters.data_quality_issues', ISSUE_COLUMNS, issues, 'issues');
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  await query('ANALYZE masters.products');
+  await query('ANALYZE masters.price_options');
+
+  const check = await query(`
+    select attrs->>'source_file' source,
+           count(*)::int rows,
+           count(*) filter (where status = 1)::int quotable,
+           count(*) filter (where city is not null)::int with_city,
+           count(distinct state)::int states
+      from masters.products where catalog = $1
+     group by 1 order by 1
+  `, [CATALOG]);
+  console.log('\nIn Postgres:');
+  console.table(check.rows);
 }
 
-function audit(images) {
-  const insert = db.prepare(`INSERT INTO data_quality_issues
-    (entity_type,product_id,price_option_id,source_sheet,source_row,severity,code,field,
-      current_value,suggested_value,message) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
-  const add = (type, productId, optionId, sheet, row, severity, code, field, current, suggestion, message) =>
-    insert.run(type, productId, optionId, sheet, row, severity, code, field,
-      current == null ? null : String(current), suggestion, message);
-  const duplicateProducts = new Set(db.prepare('SELECT sku FROM products GROUP BY sku HAVING COUNT(*)>1').all().map((r) => r.sku));
-  const duplicateOptions = new Set(db.prepare('SELECT sku FROM price_options GROUP BY sku HAVING COUNT(*)>1').all().map((r) => r.sku));
-  const locations = db.prepare('SELECT * FROM locations WHERE product_id=?');
-  for (const p of db.prepare('SELECT * FROM products').all()) {
-    const loc = locations.get(p.id);
-    const issue = (severity, code, field, current, suggestion, message) =>
-      add('product', p.id, null, 'Product', p.source_row, severity, code, field, current, suggestion, message);
-    if (duplicateProducts.has(p.sku)) issue('error', 'DUPLICATE_PRODUCT_SKU', 'Sku', p.sku, '<unique SKU>', 'Product SKU is used by multiple cinema venues.');
-    if (!p.image || !images.has(p.image.toLowerCase())) issue('error', 'PRODUCT_IMAGE_NOT_FOUND', 'Image', p.image, '<existing image filename>', 'Product image is blank or does not exist in Cinema/Images.');
-    if (!loc?.city) issue('error', 'MISSING_CITY', 'Location.City', loc?.city, '<city>', 'City is needed to match this cinema to a campaign location.');
-    if (!p.cinema_chain) issue('warning', 'MISSING_CHAIN', 'Cinema Chain', null, '<chain>', 'Cinema chain is missing.');
-    if (p.seats == null || p.seats <= 0) issue('warning', 'INVALID_SEATS', 'Seats', p.seats, '<positive seat count>', 'Seat count is missing or non-positive, reducing audience estimates.');
-    if (p.total_screen == null || p.total_screen <= 0) issue('warning', 'INVALID_SCREEN_COUNT', 'Total Screen', p.total_screen, '<positive screen count>', 'Total screen count is missing or non-positive.');
-    if (p.screen_recommend != null && p.total_screen != null && p.screen_recommend > p.total_screen)
-      issue('warning', 'RECOMMENDED_SCREENS_EXCEED_TOTAL', 'Screen Recomend', p.screen_recommend, `<= ${p.total_screen}`, 'Recommended screens exceed the venue total.');
-  }
-
-  const unitCount = db.prepare('SELECT COUNT(*) count FROM price_units WHERE price_option_id=?');
-  const sourceFor = db.prepare('SELECT * FROM offer_rate_sources WHERE price_option_id=?');
-  for (const o of db.prepare('SELECT * FROM price_options').all()) {
-    const issue = (severity, code, field, current, suggestion, message) =>
-      add('price_option', o.product_id, o.id, 'Price Option', o.source_row, severity, code, field, current, suggestion, message);
-    if (!o.product_id) issue('error', 'UNLINKED_PRICE_OPTION', 'Product Sku', o.product_sku, '<valid product SKU>', 'Price format could not be linked to a cinema product.');
-    if (duplicateOptions.has(o.sku)) issue('error', 'DUPLICATE_PRICE_OPTION_SKU', 'Price Option Sku', o.sku, '<unique SKU>', 'Price format SKU is used more than once.');
-    if (o.offer_rate == null || o.offer_rate <= 0) issue('error', 'INVALID_OFFER_RATE', 'Offer Rate', o.offer_rate, '<positive client rate>', 'Client offer rate is missing or non-positive.');
-    if (o.buying_rate == null) issue('warning', 'MISSING_BUYING_RATE', 'Specific Buying Rate', null, '<buying cost>', 'Buying cost is missing, so plan margin cannot be verified.');
-    if (o.buying_rate != null && ((o.offer_rate != null && o.offer_rate < o.buying_rate) ||
-      (o.discounted_rate != null && o.discounted_rate < o.buying_rate)))
-      issue('error', 'SELLING_BELOW_BUYING', 'Selling / Buying Rate',
-        `Offer: ${o.offer_rate ?? 'blank'}; Discounted: ${o.discounted_rate ?? 'blank'}; Buying: ${o.buying_rate}`,
-        `Client rate >= ${o.buying_rate}, plus margin`, 'At least one client-facing rate is below buying cost.');
-    if (o.discounted_rate != null && o.offer_rate != null && o.discounted_rate > o.offer_rate)
-      issue('warning', 'DISCOUNT_ABOVE_OFFER', 'Discounted Rate', o.discounted_rate, `<= ${o.offer_rate}`, 'Discounted rate exceeds the offer rate.');
-    if (o.minimum_billing == null || o.minimum_billing <= 0) issue('warning', 'INVALID_MINIMUM_BILLING', 'Minimum Billing', o.minimum_billing, '<positive amount>', 'Minimum billing is missing or non-positive.');
-    if (unitCount.get(o.id).count === 0) issue('error', 'MISSING_PRICE_UNITS', 'Price Unit', null, '<campaign quantity rules>', 'No quantity rules exist for this ad format.');
-    if (o.image && !images.has(o.image.toLowerCase())) issue('warning', 'PRICE_IMAGE_NOT_FOUND', 'Image', o.image, '<existing image filename>', 'Price format image file is missing.');
-    const source = sourceFor.get(o.id);
-    if (source && source.offer_rate != null && o.offer_rate != null && Math.abs(source.offer_rate - o.offer_rate) > 0.01)
-      issue('warning', 'RATE_SOURCE_MISMATCH', 'Offer Rate', o.offer_rate, `Rate source: ${source.offer_rate}`, 'Price Option offer rate differs from the Offer Rate Source sheet.');
-  }
-  for (const u of db.prepare('SELECT price_units.*,price_options.product_id FROM price_units LEFT JOIN price_options ON price_options.id=price_units.price_option_id').all()) {
-    if (!u.price_option_id) add('price_unit', null, null, 'Price Unit', u.source_row, 'error', 'UNLINKED_PRICE_UNIT', 'Price Option Sku', null, '<valid price-option SKU>', 'Quantity unit could not be linked to a price format.');
-    if (u.maximum != null && u.maximum < u.minimum) add('price_unit', u.product_id, u.price_option_id, 'Price Unit', u.source_row, 'error', 'INVALID_UNIT_RANGE', 'Maximum', u.maximum, `>= ${u.minimum}`, 'Maximum quantity is below minimum.');
-  }
-  for (const s of db.prepare('SELECT * FROM offer_rate_sources WHERE price_option_id IS NULL').all())
-    add('rate_source', null, null, 'Offer Rate Source', s.source_row, 'warning', 'UNLINKED_RATE_SOURCE', 'Price Option Sku', s.price_option_sku, '<valid price-option SKU>', 'Rate source could not be linked to a price format.');
-}
-
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+main()
+  .then(() => close())
+  .catch(async (error) => {
+    console.error('\nFailed:', error.message);
+    console.error(error.stack);
+    await close();
+    process.exit(1);
+  });

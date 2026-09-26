@@ -1,10 +1,9 @@
 /**
  * Applies db/schema.sql.
  *
- * Every statement is CREATE ... IF NOT EXISTS, so this is safe to run against a
- * database that already has the schema. It does not drop anything and it does
- * not migrate existing columns -- for a real column change, add a numbered file
- * under db/migrations/ and apply it deliberately.
+ * Every schema statement is CREATE ... IF NOT EXISTS, and idempotent numbered
+ * migrations under db/migrations are then applied in filename order. This is
+ * safe to rerun against an existing database and does not drop application data.
  *
  *   node --env-file=.env scripts/db-setup.js
  */
@@ -14,6 +13,7 @@ const path = require('path');
 const { query, close } = require('../src/pg');
 
 const SCHEMA_PATH = path.join(__dirname, '..', 'db', 'schema.sql');
+const MIGRATIONS_PATH = path.join(__dirname, '..', 'db', 'migrations');
 
 async function main() {
   const sql = fs.readFileSync(SCHEMA_PATH, 'utf8');
@@ -22,6 +22,15 @@ async function main() {
   // One call: the whole file runs in a single implicit transaction, so a typo
   // halfway down leaves nothing half-created.
   await query(sql);
+
+  const migrations = fs.existsSync(MIGRATIONS_PATH)
+    ? fs.readdirSync(MIGRATIONS_PATH).filter((name) => name.endsWith('.sql')).sort()
+    : [];
+  for (const name of migrations) {
+    const filename = path.join(MIGRATIONS_PATH, name);
+    console.log(`Applying ${path.relative(process.cwd(), filename)} ...`);
+    await query(fs.readFileSync(filename, 'utf8'));
+  }
 
   const { rows } = await query(`
     select table_schema, table_name

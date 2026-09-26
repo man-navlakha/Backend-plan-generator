@@ -1,5 +1,5 @@
 /**
- * Loads the four SQLite catalogs into Postgres as one unified master.
+ * Loads the non-Cinema SQLite catalogs into Postgres as one unified master.
  *
  *   node --env-file=.env scripts/migrate-to-postgres.js [--dry] [--catalog=transit]
  *
@@ -7,11 +7,10 @@
  *
  *   transit.db        typed import  -> catalog 'transit'  (10 media types)
  *   radio.db          typed import  -> catalog 'radio'
- *   cinema.db         typed import  -> catalog 'cinema'
  *   other-masters.db  generic       -> btl, digital, digital_pr, magazine, tv
  *                                      (newspaper is skipped -- see main())
  *
- * other-masters.db also holds transit/radio/cinema, but generically -- every
+ * other-masters.db also holds transit/radio/cinema, but as raw fields -- every
  * field flattened into fields_json. Where a dedicated importer exists it parsed
  * the workbook better, so it wins and the generic copy is skipped.
  *
@@ -34,7 +33,6 @@ const DATA = path.join(__dirname, '..', 'src', 'data');
 const OFFSET = {
   transit: 10_000_000,
   radio: 20_000_000,
-  cinema: 30_000_000,
   btl: 40_000_000,
   digital: 50_000_000,
   digital_pr: 60_000_000,
@@ -42,10 +40,16 @@ const OFFSET = {
   tv: 90_000_000
 };
 
+/**
+ * The catalogs this script owns, and the only ones a full rebuild may delete.
+ * Anything else in masters.catalogs was loaded from its own workbook by its own
+ * importer and is none of this script's business.
+ */
+const OWNED_CATALOGS = Object.keys(OFFSET);
+
 const FAMILY = {
   transit: 'transit',
   radio: 'radio',
-  cinema: 'cinema',
   btl: 'btl',
   digital: 'digital',
   digital_pr: 'digital',
@@ -107,7 +111,7 @@ function parseJson(value, fallback) {
 
 /**
  * City -> state, learned from the masters that carry a real Location sheet
- * (cinema, radio, newspaper). Transit and BTL have no location columns at all,
+ * (radio and newspaper). Transit and BTL have no location columns at all,
  * so their city has to be read out of the product name -- and a name fragment
  * is only a city if a master somewhere has already called it one.
  */
@@ -125,7 +129,7 @@ function buildCityDictionary(dbs) {
   };
 
   for (const table of ['locations']) {
-    for (const db of [dbs.cinema, dbs.radio]) {
+    for (const db of [dbs.radio]) {
       if (!db) continue;
       try {
         for (const row of db.prepare(`select city, state from ${table}`).all()) add(row.city, row.state);
@@ -448,100 +452,6 @@ function extractRadio(db, dict) {
   return { products, priceOptions };
 }
 
-function extractCinema(db) {
-  const off = OFFSET.cinema;
-  const products = [];
-  const priceOptions = [];
-  const locations = groupBy(db.prepare('select * from locations').all(), 'product_id');
-
-  for (const p of db.prepare('select * from products').all()) {
-    const loc = (locations.get(p.id) || [])[0];
-    products.push({
-      id: off + p.id,
-      catalog: 'cinema',
-      family: 'cinema',
-      media_type: 'cinema',
-      media_label: 'Cinema',
-      source_row: p.source_row,
-      sku: text(p.sku),
-      name: p.name,
-      description: text(p.description),
-      image_url: text(p.image),
-      status: p.status ?? 1,
-      sort_order: p.sort_order,
-      country: 'India',
-      state: text(loc?.state),
-      city: text(loc?.city),
-      locality: text(loc?.locality),
-      zone: text(loc?.zone),
-      location_source: loc?.city ? 'master' : 'none',
-      attrs: JSON.stringify({
-        cinema_chain: text(p.cinema_chain),
-        screen: text(p.screen),
-        screen_recommend: int(p.screen_recommend),
-        total_screen: int(p.total_screen),
-        seats: int(p.seats),
-        audience_class: text(p.audience_class),
-        tier: text(p.tier),
-        rank: int(p.rank),
-        google_map_location: text(p.google_map_location)
-      }),
-      search_text: searchText([p.name, p.sku, p.cinema_chain, loc?.city, loc?.state, loc?.locality, p.screen])
-    });
-  }
-
-  const units = groupBy(db.prepare('select * from price_units').all(), 'price_option_id');
-  const sources = groupBy(db.prepare('select * from offer_rate_sources').all(), 'price_option_id');
-
-  for (const o of db.prepare('select * from price_options').all()) {
-    priceOptions.push({
-      id: off + o.id,
-      product_id: off + o.product_id,
-      catalog: 'cinema',
-      family: 'cinema',
-      media_type: 'cinema',
-      source_row: o.source_row,
-      sku: text(o.sku),
-      name: o.name,
-      template: text(o.template),
-      minimum_billing: num(o.minimum_billing),
-      offer_rate: num(o.offer_rate),
-      buying_rate: num(o.buying_rate),
-      discounted_rate: num(o.discounted_rate),
-      pricing_unit: text(o.pricing_unit),
-      gst: num(o.gst),
-      on_request: yes(o.on_request),
-      status: o.status ?? 1,
-      sort_order: o.sort_order,
-      image_url: text(o.image),
-      units: JSON.stringify(
-        (units.get(o.id) || []).map((u) => ({
-          unit: u.name,
-          code: u.code,
-          step: num(u.step),
-          minimum: num(u.minimum),
-          maximum: num(u.maximum)
-        }))
-      ),
-      attrs: '{}',
-      addons: '[]',
-      variants: '[]',
-      rate_sources: JSON.stringify(
-        (sources.get(o.id) || []).map((s) => ({
-          screen: s.screen,
-          rate_source: s.rate_source,
-          basis: s.basis,
-          source_rate: num(s.source_rate),
-          divide_by: num(s.divide_by),
-          offer_rate: num(s.offer_rate)
-        }))
-      )
-    });
-  }
-
-  return { products, priceOptions };
-}
-
 /**
  * The six catalogs with no dedicated importer. Everything arrives as
  * fields_json, so the mapping is by column name with a per-catalog hint for
@@ -738,7 +648,6 @@ async function main() {
   const dbs = {
     transit: new Database(path.join(DATA, 'transit.db'), { readonly: true }),
     radio: new Database(path.join(DATA, 'radio.db'), { readonly: true }),
-    cinema: new Database(path.join(DATA, 'cinema.db'), { readonly: true }),
     other: new Database(path.join(DATA, 'other-masters.db'), { readonly: true })
   };
 
@@ -756,7 +665,6 @@ async function main() {
   const extracted = {};
   if (!SELECTED_CATALOG || SELECTED_CATALOG === 'transit') extracted.transit = extractTransit(dbs.transit, dict);
   if (!SELECTED_CATALOG || SELECTED_CATALOG === 'radio') extracted.radio = extractRadio(dbs.radio, dict);
-  if (!SELECTED_CATALOG || SELECTED_CATALOG === 'cinema') extracted.cinema = extractCinema(dbs.cinema);
 
   /*
    * 'newspaper' is deliberately absent.
@@ -805,12 +713,8 @@ async function main() {
     if (media) po.media_type = media;
   }
 
-  const qube = !SELECTED_CATALOG || SELECTED_CATALOG === 'cinema'
-    ? dbs.cinema.prepare('select * from qube_rate_card').all() : [];
-
   console.log(
-    `\nTotal: ${allProducts.length} products, ${allPriceOptions.length} price options, ` +
-      `${qube.length} qube rate rows`
+    `\nTotal: ${allProducts.length} products, ${allPriceOptions.length} price options`
   );
 
   const located = allProducts.filter((p) => p.city).length;
@@ -831,20 +735,20 @@ async function main() {
     if (SELECTED_CATALOG) {
       await client.query('DELETE FROM masters.data_quality_issues WHERE catalog=$1', [SELECTED_CATALOG]);
       await client.query('DELETE FROM masters.catalogs WHERE slug=$1', [SELECTED_CATALOG]);
-      if (SELECTED_CATALOG === 'cinema') await client.query('TRUNCATE masters.qube_rate_card');
     } else {
-      await client.query('TRUNCATE masters.catalogs CASCADE');
-      await client.query('TRUNCATE masters.qube_rate_card');
+      // Only the catalogs this script builds from SQLite. Cinema is owned by
+      // import-cinema-master.js and must survive a full migration here.
+      await client.query(
+        'DELETE FROM masters.data_quality_issues WHERE catalog = ANY($1)',
+        [OWNED_CATALOGS]
+      );
+      await client.query('DELETE FROM masters.catalogs WHERE slug = ANY($1)', [OWNED_CATALOGS]);
     }
 
     await insertRows(client, 'masters.catalogs',
       ['slug', 'label', 'family', 'workbook', 'row_counts'], catalogs, 'catalogs');
     await insertRows(client, 'masters.products', PRODUCT_COLUMNS, allProducts, 'products');
     await insertRows(client, 'masters.price_options', PO_COLUMNS, allPriceOptions, 'price_options');
-    if (!SELECTED_CATALOG || SELECTED_CATALOG === 'cinema') {
-      await insertRows(client, 'masters.qube_rate_card',
-        ['source_row', 'section', 'name', 'rate'], qube, 'qube_rate_card');
-    }
 
     await client.query('COMMIT');
   } catch (error) {

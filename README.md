@@ -6,29 +6,36 @@ Express backend service.
 
 ```bash
 npm install
-npm start
+npm run start:local
 ```
 
 Server listens on port `3000` by default; override with the `PORT` environment variable.
 
-Copy `.env.example` to `.env` for the Appwrite credentials, then run with
-`node --env-file=.env src/server.js`. The service starts without them — only
-plan upload needs them.
+Copy `.env.example` to `.env` and fill in the local credentials. `npm run start:local` and
+`npm run dev` load that file automatically. `npm start` deliberately uses only process environment
+variables for production hosts. The CRM generation endpoint additionally requires non-empty
+`CRM_API_KEY` and `OPENAI_API_KEY` values.
 
 ## Scripts
 
 | Script | Description |
 | --- | --- |
-| `npm start` | Start the server |
-| `npm run dev` | Start with file watching |
+| `npm start` | Start with production process environment variables |
+| `npm run start:local` | Start locally and load `.env` |
+| `npm run dev` | Start with file watching and load `.env` |
 | `npm run db:import` | Rebuild the SQLite transit database from `transitmaster.xlsx` |
 | `npm run db:audit` | Print data-quality counts from the imported master |
 | `npm run db:import:radio` | Rebuild the SQLite radio database from `radiomaster.xlsx` |
-| `npm run db:import:cinema` | Rebuild the SQLite cinema database from `New Cinema Master Final.xlsx` |
+| `npm run db:import:cinema` | Rebuild the Railway/Postgres Cinema catalog from both PAN-India workbooks |
+| `npm run db:build:cinema-legacy` | Rebuild the legacy SQLite database used by the local Cinema browser |
+| `npm run db:import:magazine` | Rebuild the lossless six-table Magazine database and preserve the previous database as a timestamped backup |
 | `npm run db:import:others` | Rebuild the shared SQLite database for all nine master workbooks |
 | `npm run db:import:all` | Rebuild Transit, Radio, Cinema, and the shared catalog in dependency order |
 | `npm run db:smoke:masters` | Check every master catalog, detail API, filters, and CSV export |
 | `npm run db:smoke:dedicated` | Check the six dedicated master pages and their media-specific filters |
+| `npm run db:smoke:magazine` | Verify all six Magazine sheet tables and SQLite integrity |
+| `npm run db:smoke:cinema` | Verify the unified Railway/Postgres Cinema catalog |
+| `npm run db:export:cinema` | Export the Cinema catalog to `src/data/cinema-catalog.db` |
 | `npm run plan:demo` | Render the demo plan workbook to `output/` |
 | `npm run plan:upload` | Render it and upload the workbook to the Appwrite bucket |
 
@@ -106,12 +113,45 @@ endpoints mirror Transit under `/api/radio`.
 
 ## Cinema master catalog
 
-Run `npm run db:import:cinema`, start the server, and open
+Run `npm run db:build:cinema-legacy`, start the server, and open
 `http://localhost:3000/cinema/`. The single-page Cinema catalog covers venues,
 chains, cities, tiers, seats, screens, ad-film and slide formats, all selling and
 buying rates, and campaign quantity rules. Rows render progressively as you
 scroll so the 6,000+ venue directory stays responsive. Product details also
 show offer-rate provenance where the workbook provides it.
+
+Generated Cinema plans use `Cinema PAN India 07-04-2025 old.xlsx` as their approved
+format and billing reference: the B:R cinema table, 10-second default A/V activity, weekly pricing,
+₹5,000 making/conversion charge per creative, and 18% GST. Inventory and rates for a `Cinema` brief
+still come from the current Cinema master catalog.
+
+### Unified Cinema catalog
+
+Two PAN-India cards are combined into the single `cinema` catalog and media type:
+
+| Workbook | Sheets | Screens |
+| --- | ---: | ---: |
+| `Cinema PAN India 07-04-2025 old.xlsx` | 26 | 10,118 |
+| `Cinema_PAN_India_From_CSVs.xlsx` | 33 | 10,547 |
+
+20,665 rows, 16,268 quotable, 34 states, 12,799 venues. **Nothing is dropped** — a row with
+blank fields is kept and each gap becomes a finding, so the desk can list what is missing,
+fill it in the workbook, and re-import. Where a screen is in both cards the rows are linked:
+blanks are filled from the other card (5,617 of them), the newer row stays quotable, and the
+older one is retained but non-quotable so a plan cannot bill one audi at two prices.
+
+Every `Cinema` brief searches this catalog directly. There is no second Cinema catalog or
+alternate service name.
+
+```
+npm run db:import:cinema     # rebuild Railway/Postgres from both workbooks
+npm run db:smoke:cinema      # verify
+npm run db:export:cinema     # portable SQLite -> src/data/cinema-catalog.db
+```
+
+The exported file opens in any SQLite browser and has a `plan_sheet` view with exactly the 17
+client-sheet columns, a `missing_fields` worklist, and a `blank_field_count` on every row.
+Full notes in [db/CINEMA_DATABASE.md](db/CINEMA_DATABASE.md).
 
 The data-quality filter checks pricing and margin, images, location, seat and
 screen counts, quantity rules, and rate-source consistency. Download the repair
