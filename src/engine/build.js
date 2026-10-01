@@ -29,6 +29,10 @@ const DISPLAY_NAME = new Map();
 for (const [name, meta] of Object.entries(formatIndex.media_types)) {
   DISPLAY_NAME.set(meta.slug, name);
 }
+// media-map.js now points "Radio" at the private_radio catalog (see its
+// ALIASES comment); the index still only knows the old slug, fm_radio, so
+// this medium needs its own entry to keep rendering under the Radio template.
+DISPLAY_NAME.set('private_radio', 'Radio');
 
 function displayName(mediaType) {
   const value = String(mediaType || '').trim();

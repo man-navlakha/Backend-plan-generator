@@ -11,6 +11,48 @@ const PROBLEM_FILTERS = {
   pending: "AND qi.code LIKE 'PENDING_%'"
 };
 
+/**
+ * @swagger
+ * /api/radio/stats:
+ *   get:
+ *     summary: Radio catalog totals
+ *     description: >
+ *       **Why we use this:** whoever maintains the radio master needs a quick read of its size and
+ *       shape right after an import, without opening the database.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal, and the data-ops person who just ran an
+ *       import, to confirm it landed correctly.
+ *
+ *
+ *       **How it helps:** one call returns row counts and the tier breakdown instead of several
+ *       manual queries.
+ *
+ *
+ *       **Main purpose:** at-a-glance totals for the radio master.
+ *     tags: [Radio catalog]
+ *     responses:
+ *       200:
+ *         description: Row counts and a per-tier breakdown.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products: { type: integer }
+ *                 price_options: { type: integer }
+ *                 variants: { type: integer }
+ *                 issues: { type: integer }
+ *                 affected_products: { type: integer }
+ *                 tiers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name: { type: string }
+ *                       count: { type: integer }
+ *                 imported_at: { type: string, nullable: true }
+ */
 router.get('/stats', (req, res) => {
   const totals = db.prepare(`SELECT
     (SELECT COUNT(*) FROM products) products, (SELECT COUNT(*) FROM price_options) price_options,
@@ -22,11 +64,81 @@ router.get('/stats', (req, res) => {
   res.json({ ...totals, tiers, imported_at: imported?.value || null });
 });
 
+/**
+ * @swagger
+ * /api/radio/filters:
+ *   get:
+ *     summary: Radio filter values
+ *     description: >
+ *       **Why we use this:** a filter dropdown needs real, current values instead of a hardcoded
+ *       list that drifts from what's actually imported.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal's filter controls on the products browse page.
+ *
+ *
+ *       **How it helps:** keeps filter options in sync with whatever the latest import contains.
+ *
+ *
+ *       **Main purpose:** supply the distinct values used to populate browse filters.
+ *     tags: [Radio catalog]
+ *     responses:
+ *       200:
+ *         description: Available filter values.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 tiers: { type: array, items: { type: string } }
+ *                 languages: { type: array, items: { type: string } }
+ *                 cities: { type: array, items: { type: string } }
+ */
 router.get('/filters', (req, res) => {
   const values = (column, table = 'products') => db.prepare(`SELECT DISTINCT ${column} value FROM ${table} WHERE ${column} IS NOT NULL ORDER BY ${column}`).all().map((row) => row.value);
   res.json({ tiers: values('tier'), languages: values('language'), cities: values('city', 'locations') });
 });
 
+/**
+ * @swagger
+ * /api/radio/problems/summary:
+ *   get:
+ *     summary: Radio data quality issue summary
+ *     description: >
+ *       **Why we use this:** an import can carry bad rows (duplicate SKUs, missing images, pricing
+ *       below cost); someone needs to see the scale of the problem before fixing it.
+ *
+ *
+ *       **Who uses it & why:** the data-ops team auditing the radio master right after an import.
+ *
+ *
+ *       **How it helps:** groups issues by code and severity so the worst problems surface first.
+ *
+ *
+ *       **Main purpose:** summarize data quality issues found in the radio master.
+ *     tags: [Radio catalog]
+ *     responses:
+ *       200:
+ *         description: Issue totals grouped by code and severity.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 issues: { type: integer }
+ *                 affected_products: { type: integer }
+ *                 errors: { type: integer }
+ *                 warnings: { type: integer }
+ *                 by_code:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       code: { type: string }
+ *                       severity: { type: string, enum: [error, warning] }
+ *                       count: { type: integer }
+ *                       affected_products: { type: integer }
+ */
 router.get('/problems/summary', (req, res) => {
   const totals = db.prepare(`SELECT COUNT(*) issues,COUNT(DISTINCT product_id) affected_products,
     SUM(severity='error') errors,SUM(severity='warning') warnings FROM data_quality_issues`).get();
@@ -35,6 +147,32 @@ router.get('/problems/summary', (req, res) => {
   res.json({ ...totals, by_code: byCode });
 });
 
+/**
+ * @swagger
+ * /api/radio/problems.csv:
+ *   get:
+ *     summary: Download radio data quality issues as CSV
+ *     description: >
+ *       **Why we use this:** fixing issues usually happens in a spreadsheet, not in this API.
+ *
+ *
+ *       **Who uses it & why:** the data-ops team, to pull every issue into Excel for batch
+ *       correction or to hand to whoever owns the source workbook.
+ *
+ *
+ *       **How it helps:** one CSV carries every issue with its product, station, city and source
+ *       row, instead of paging through the browse UI.
+ *
+ *
+ *       **Main purpose:** export every data quality issue for offline fixing.
+ *     tags: [Radio catalog]
+ *     responses:
+ *       200:
+ *         description: UTF-8 CSV with a BOM, one row per issue.
+ *         content:
+ *           text/csv:
+ *             schema: { type: string }
+ */
 router.get('/problems.csv', (req, res) => {
   const issues = db.prepare(`SELECT qi.id issue_id,qi.severity,qi.code problem_code,qi.entity_type,
     qi.source_sheet,qi.source_row,p.name product_name,p.sku product_sku,l.city,po.name price_option_name,
@@ -51,6 +189,73 @@ router.get('/problems.csv', (req, res) => {
   res.send(`\uFEFF${csv}`);
 });
 
+/**
+ * @swagger
+ * /api/radio/products:
+ *   get:
+ *     summary: Browse radio products
+ *     description: >
+ *       **Why we use this:** someone needs to search and filter the imported catalog to check
+ *       what's actually in it, beyond raw totals.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal, for data-ops verifying an import and desk
+ *       staff checking what's currently sellable.
+ *
+ *
+ *       **How it helps:** a filterable, sortable listing with pricing and issue counts per station,
+ *       in one call.
+ *
+ *
+ *       **Main purpose:** browse and search the radio product catalog.
+ *     tags: [Radio catalog]
+ *     parameters:
+ *       - { in: query, name: search, schema: { type: string }, description: Matches name, SKU, station or city. }
+ *       - { in: query, name: tier, schema: { type: string } }
+ *       - { in: query, name: language, schema: { type: string } }
+ *       - { in: query, name: city, schema: { type: string } }
+ *       - { in: query, name: problem, schema: { type: string, enum: [any, error, warning, margin, image, location, pricing, pending, clean] } }
+ *       - { in: query, name: sort, schema: { type: string, enum: [name, price_low, price_high, rank, source], default: source } }
+ *     responses:
+ *       200:
+ *         description: All matching products (this catalog is not paginated server-side).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       name: { type: string }
+ *                       sku: { type: string }
+ *                       short_description: { type: string }
+ *                       image: { type: string }
+ *                       tier: { type: string }
+ *                       station: { type: string }
+ *                       language: { type: string }
+ *                       audience: { type: string }
+ *                       frequency: { type: string }
+ *                       rank: { type: number, nullable: true }
+ *                       listenership: { type: string }
+ *                       show_timing: { type: string }
+ *                       coverage_area: { type: string }
+ *                       city: { type: string }
+ *                       state: { type: string }
+ *                       country: { type: string }
+ *                       price_option_count: { type: integer }
+ *                       min_rate: { type: number, nullable: true }
+ *                       max_rate: { type: number, nullable: true }
+ *                       min_buying_rate: { type: number, nullable: true }
+ *                       variant_count: { type: integer }
+ *                       issue_count: { type: integer }
+ *                       error_count: { type: integer }
+ *                       loss_price_count: { type: integer }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ */
 router.get('/products', (req, res) => {
   const search = clean(req.query.search); const tier = clean(req.query.tier);
   const language = clean(req.query.language); const city = clean(req.query.city); const problem = clean(req.query.problem);
@@ -77,6 +282,43 @@ router.get('/products', (req, res) => {
   res.json({ data, pagination: { page: 1, page_size: data.length, total: data.length, pages: data.length ? 1 : 0, show_all: true } });
 });
 
+/**
+ * @swagger
+ * /api/radio/products/{id}:
+ *   get:
+ *     summary: Get a radio product
+ *     description: >
+ *       Includes locations, price options (with units, attributes and variants), and data quality issues.
+ *
+ *
+ *       **Why we use this:** diagnosing one station's issues, or quoting its exact rate card,
+ *       needs more detail than the list view gives.
+ *
+ *
+ *       **Who uses it & why:** data-ops drilling into a flagged product, and desk staff checking
+ *       exact pricing for one variant.
+ *
+ *
+ *       **How it helps:** returns locations, the full price-option/variant tree and that product's
+ *       issues in one call.
+ *
+ *
+ *       **Main purpose:** full detail for a single radio product.
+ *     tags: [Radio catalog]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: The product.
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ *       404:
+ *         description: Radio product not found.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/products/:id', (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
   const product = db.prepare('SELECT * FROM products WHERE id=?').get(id);

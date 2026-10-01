@@ -58,6 +58,77 @@ const FIELDS = [
   }
 ];
 
+/**
+ * @swagger
+ * /brief:
+ *   get:
+ *     summary: Validate a deal brief
+ *     description: >
+ *       Accepts the deal brief as query parameters, validates it against the media catalog, and
+ *       echoes back the parsed brief. Does not generate or persist a plan — use POST /plans for that.
+ *
+ *
+ *       **Why we use this:** generating a full plan takes several seconds and creates a database
+ *       record; callers need a cheap way to know a brief is valid and the medium is plannable
+ *       before paying that cost.
+ *
+ *
+ *       **Who uses it & why:** the internal planning desk (via a form) checking a brief as it's
+ *       typed, and any CRM or automation doing a pre-check before calling POST /plans.
+ *
+ *
+ *       **How it helps:** surfaces missing fields, an unknown media name, or an unusable budget
+ *       immediately, and says plainly when a medium has no rates yet instead of a confusing failure.
+ *
+ *
+ *       **Main purpose:** validate a brief and preview the outcome without generating a plan.
+ *     tags: [Brief]
+ *     parameters:
+ *       - { in: query, name: deal_id, required: true, schema: { type: string }, description: 'Also accepts dealId, deal' }
+ *       - { in: query, name: company, required: true, schema: { type: string }, description: 'Also accepts client' }
+ *       - { in: query, name: service, required: true, schema: { type: string }, description: 'Media name or slug. Also accepts media, media_type, mediaType' }
+ *       - { in: query, name: budget, required: true, schema: { type: string }, description: 'Also accepts amount. e.g. "250000", "2,50,000" or "₹250000"' }
+ *       - { in: query, name: campaign_objective, schema: { type: string }, description: 'Also accepts campaignObjective, objective' }
+ *       - { in: query, name: target_audience, schema: { type: string }, description: 'Also accepts targetAudience, audience' }
+ *       - { in: query, name: target_locations, schema: { type: string }, description: 'Comma-separated. Also accepts targetLocations, locations, location' }
+ *       - { in: query, name: remarks_for_media, schema: { type: string }, description: 'Also accepts remarksForMedia, remarks' }
+ *     responses:
+ *       200:
+ *         description: Brief accepted (status `ok`), or the medium has no rates yet (status `coming_soon`).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, enum: [ok, coming_soon] }
+ *                 receivedAt: { type: string, format: date-time }
+ *                 message: { type: string }
+ *                 notice: { type: string }
+ *                 service: { type: string }
+ *                 available_now: { type: array, items: { type: string } }
+ *                 brief:
+ *                   type: object
+ *                   properties:
+ *                     deal_id: { type: string }
+ *                     company: { type: string }
+ *                     service: { type: string }
+ *                     media:
+ *                       type: object
+ *                       properties:
+ *                         slug: { type: string }
+ *                         family: { type: string }
+ *                         template: { type: string }
+ *                     budget: { type: number }
+ *                     campaign_objective: { type: string, nullable: true }
+ *                     target_audience: { type: string, nullable: true }
+ *                     target_locations: { type: array, items: { type: string } }
+ *                     remarks_for_media: { type: string, nullable: true }
+ *       400:
+ *         description: Missing or invalid field.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 // GET /brief — accepts the deal brief as query parameters and echoes back the parsed brief.
 router.get('/', wrap(async (req, res) => {
   const raw = {};
@@ -131,6 +202,55 @@ router.get('/', wrap(async (req, res) => {
  * Discovery helper so callers can see the accepted media names without reading
  * the asset index -- now with whether each one can actually be planned, so a
  * caller can avoid the coming_soon answer instead of discovering it.
+ */
+/**
+ * @swagger
+ * /brief/media-types:
+ *   get:
+ *     summary: List plannable media types
+ *     description: >
+ *       Discovery helper so callers can see the accepted media names without reading the asset
+ *       index — including whether each one can actually be planned right now.
+ *
+ *
+ *       **Why we use this:** the asset index lists every media type the business sells, but the
+ *       live rate-card catalog can lag it; callers need the two reconciled into one answer.
+ *
+ *
+ *       **Who uses it & why:** front-end forms building a media picker, and CRM integrations
+ *       deciding what to offer a client right now.
+ *
+ *
+ *       **How it helps:** prevents a caller from guessing a media name or submitting a brief for a
+ *       medium that would just bounce back as "coming soon".
+ *
+ *
+ *       **Main purpose:** list every media type together with its live plannability.
+ *     tags: [Brief]
+ *     responses:
+ *       200:
+ *         description: Media type catalog with live availability.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ *                 count: { type: integer }
+ *                 available: { type: integer }
+ *                 coming_soon: { type: array, items: { type: string } }
+ *                 media_types:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name: { type: string }
+ *                       slug: { type: string }
+ *                       family: { type: string }
+ *                       status: { type: string, enum: [available, coming_soon], nullable: true }
+ *                       products: { type: integer, nullable: true }
+ *                       price_options: { type: integer, nullable: true }
+ *                       reason: { type: string }
  */
 router.get('/media-types', wrap(async (req, res) => {
   const map = await getAvailability();

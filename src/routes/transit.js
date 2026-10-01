@@ -16,6 +16,49 @@ const PROBLEM_FILTERS = {
   media: "AND qi.code = 'MEDIA_TYPE_TYPO'"
 };
 
+/**
+ * @swagger
+ * /api/transit/stats:
+ *   get:
+ *     summary: Transit catalog totals
+ *     description: >
+ *       **Why we use this:** whoever maintains the transit master needs a quick read of its size
+ *       and shape right after an import, without opening the database.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal, and the data-ops person who just ran an
+ *       import, to confirm it landed correctly.
+ *
+ *
+ *       **How it helps:** one call returns row counts and the media-type breakdown instead of
+ *       several manual queries.
+ *
+ *
+ *       **Main purpose:** at-a-glance totals for the transit master.
+ *     tags: [Transit catalog]
+ *     responses:
+ *       200:
+ *         description: Row counts and a per-media-type breakdown.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products: { type: integer }
+ *                 price_options: { type: integer }
+ *                 price_units: { type: integer }
+ *                 media_types: { type: integer }
+ *                 issues: { type: integer }
+ *                 affected_products: { type: integer }
+ *                 media:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name: { type: string }
+ *                       count: { type: integer }
+ *                 imported_at: { type: string, nullable: true }
+ */
 router.get('/stats', (req, res) => {
   const totals = db.prepare(`
     SELECT
@@ -37,12 +80,84 @@ router.get('/stats', (req, res) => {
   res.json({ ...totals, media, imported_at: importedAt?.value || null });
 });
 
+/**
+ * @swagger
+ * /api/transit/filters:
+ *   get:
+ *     summary: Transit filter values
+ *     description: >
+ *       Distinct media types and tiers available, for populating browse filters.
+ *
+ *
+ *       **Why we use this:** a filter dropdown needs real, current values instead of a hardcoded
+ *       list that drifts from what's actually imported.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal's filter controls on the products browse page.
+ *
+ *
+ *       **How it helps:** keeps filter options in sync with whatever the latest import contains.
+ *
+ *
+ *       **Main purpose:** supply the distinct values used to populate browse filters.
+ *     tags: [Transit catalog]
+ *     responses:
+ *       200:
+ *         description: Available filter values.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 media_types: { type: array, items: { type: string } }
+ *                 tiers: { type: array, items: { type: string } }
+ */
 router.get('/filters', (req, res) => {
   const mediaTypes = db.prepare(`SELECT DISTINCT media_type AS value FROM products WHERE media_type IS NOT NULL ORDER BY media_type`).all();
   const tiers = db.prepare(`SELECT DISTINCT tier AS value FROM products WHERE tier IS NOT NULL ORDER BY tier`).all();
   res.json({ media_types: mediaTypes.map((item) => item.value), tiers: tiers.map((item) => item.value) });
 });
 
+/**
+ * @swagger
+ * /api/transit/problems/summary:
+ *   get:
+ *     summary: Transit data quality issue summary
+ *     description: >
+ *       **Why we use this:** an import can carry bad rows (duplicate SKUs, missing images, pricing
+ *       below cost); someone needs to see the scale of the problem before fixing it.
+ *
+ *
+ *       **Who uses it & why:** the data-ops team auditing the transit master right after an import.
+ *
+ *
+ *       **How it helps:** groups issues by code and severity so the worst problems surface first.
+ *
+ *
+ *       **Main purpose:** summarize data quality issues found in the transit master.
+ *     tags: [Transit catalog]
+ *     responses:
+ *       200:
+ *         description: Issue totals grouped by code and severity.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 issues: { type: integer }
+ *                 affected_products: { type: integer }
+ *                 errors: { type: integer }
+ *                 warnings: { type: integer }
+ *                 by_code:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       code: { type: string }
+ *                       severity: { type: string, enum: [error, warning] }
+ *                       count: { type: integer }
+ *                       affected_products: { type: integer }
+ */
 router.get('/problems/summary', (req, res) => {
   const byCode = db.prepare(`
     SELECT code, severity, COUNT(*) AS count, COUNT(DISTINCT product_id) AS affected_products
@@ -58,6 +173,32 @@ router.get('/problems/summary', (req, res) => {
   res.json({ ...totals, by_code: byCode });
 });
 
+/**
+ * @swagger
+ * /api/transit/problems.csv:
+ *   get:
+ *     summary: Download transit data quality issues as CSV
+ *     description: >
+ *       **Why we use this:** fixing issues usually happens in a spreadsheet, not in this API.
+ *
+ *
+ *       **Who uses it & why:** the data-ops team, to pull every issue into Excel for batch
+ *       correction or to hand to whoever owns the source workbook.
+ *
+ *
+ *       **How it helps:** one CSV carries every issue with its product, price option and source
+ *       row, instead of paging through the browse UI.
+ *
+ *
+ *       **Main purpose:** export every data quality issue for offline fixing.
+ *     tags: [Transit catalog]
+ *     responses:
+ *       200:
+ *         description: UTF-8 CSV with a BOM, one row per issue.
+ *         content:
+ *           text/csv:
+ *             schema: { type: string }
+ */
 router.get('/problems.csv', (req, res) => {
   const issues = db.prepare(`
     SELECT
@@ -85,6 +226,67 @@ router.get('/problems.csv', (req, res) => {
   res.send(`\uFEFF${csv}`);
 });
 
+/**
+ * @swagger
+ * /api/transit/products:
+ *   get:
+ *     summary: Browse transit products
+ *     description: >
+ *       **Why we use this:** someone needs to search and filter the imported catalog to check
+ *       what's actually in it, beyond raw totals.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal, for data-ops verifying an import and desk
+ *       staff checking what's currently sellable.
+ *
+ *
+ *       **How it helps:** a paginated, filterable, sortable listing with pricing and issue counts
+ *       per product, in one call.
+ *
+ *
+ *       **Main purpose:** browse and search the transit product catalog.
+ *     tags: [Transit catalog]
+ *     parameters:
+ *       - { in: query, name: page, schema: { type: integer, default: 1 } }
+ *       - { in: query, name: page_size, schema: { type: integer, default: 24, maximum: 100 } }
+ *       - { in: query, name: show_all, schema: { type: boolean }, description: Returns every matching row, ignoring page_size. }
+ *       - { in: query, name: search, schema: { type: string }, description: Matches name, SKU or short description. }
+ *       - { in: query, name: media_type, schema: { type: string } }
+ *       - { in: query, name: tier, schema: { type: string } }
+ *       - { in: query, name: problem, schema: { type: string, enum: [any, error, warning, duplicate, product_image, price_image, pricing, margin, sku, media, clean] } }
+ *       - { in: query, name: sort, schema: { type: string, enum: [name, newest, price_low, price_high, source], default: source } }
+ *     responses:
+ *       200:
+ *         description: Page of products.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       name: { type: string }
+ *                       sku: { type: string }
+ *                       short_description: { type: string }
+ *                       image: { type: string }
+ *                       media_type: { type: string }
+ *                       tier: { type: string }
+ *                       size_dimension: { type: string }
+ *                       status: { type: integer }
+ *                       price_option_count: { type: integer }
+ *                       min_rate: { type: number, nullable: true }
+ *                       max_rate: { type: number, nullable: true }
+ *                       min_buying_rate: { type: number, nullable: true }
+ *                       loss_price_count: { type: integer }
+ *                       issue_count: { type: integer }
+ *                       error_count: { type: integer }
+ *                       problem_codes: { type: string, nullable: true }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ */
 router.get('/products', (req, res) => {
   const page = positiveInteger(req.query.page, 1);
   const showAll = req.query.show_all === '1' || req.query.show_all === 'true';
@@ -153,6 +355,42 @@ router.get('/products', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/transit/products/{id}:
+ *   get:
+ *     summary: Get a transit product
+ *     description: >
+ *       Includes price options with their units, attributes and pricing options, plus data quality issues.
+ *
+ *
+ *       **Why we use this:** diagnosing one product's issues, or quoting its exact rate card, needs
+ *       more detail than the list view gives.
+ *
+ *
+ *       **Who uses it & why:** data-ops drilling into a flagged product, and desk staff checking
+ *       exact pricing for one unit.
+ *
+ *
+ *       **How it helps:** returns the full price-option tree and that product's issues in one call.
+ *
+ *
+ *       **Main purpose:** full detail for a single transit product.
+ *     tags: [Transit catalog]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: The product.
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ *       404:
+ *         description: Transit product not found.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/products/:id', (req, res) => {
   const id = positiveInteger(req.params.id, 0);
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(id);

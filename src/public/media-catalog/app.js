@@ -83,9 +83,7 @@ const observer = new IntersectionObserver((entries) => {
 
 function renderNav() {
   const links = [
-    ['transit','Transit'],['radio','Radio'],['cinema','Cinema'],['btl','BTL'],
-    ['digital','Digital'],['digital-pr','Digital PR'],['magazine','Magazine'],
-    ['newspaper','Newspaper'],['tv','TV']
+    ['transit','Transit'],['radio','Radio'],['cinema','Cinema'],['magazine','Magazine']
   ];
   $('master-nav').innerHTML = links.map(([path,label]) =>
     `<a href="/${path}/" class="${PAGE === path ? 'active' : ''}">${esc(label)}</a>`).join('');

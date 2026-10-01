@@ -37,6 +37,49 @@ function fill(argb) {
   return { type: 'pattern', pattern: 'solid', fgColor: { argb } };
 }
 
+// Excel character-width -> pixel conversion for the default Calibri 11 font
+// (max digit width 7px): the same formula Excel itself uses to lay out columns.
+function colWidthToPx(width) {
+  return Math.round((width || 8.43) * 7 + 5);
+}
+
+// 1 point = 4/3 px at 96 DPI.
+function rowHeightToPx(height) {
+  return (height || 15) * (96 / 72);
+}
+
+/**
+ * Band-relative anchor {col, row} that centers a fixed-size image inside a
+ * run of columns/rows. Both values are in ExcelJS's own oneCellAnchor units,
+ * where the integer part is a 0-based index into the band and the fractional
+ * part is how far across that one column/row the image starts — so callers
+ * add their band's starting column/row (0-based) to get the sheet anchor.
+ */
+function centerImageAnchor({ colWidths, rowHeights, imageWidth, imageHeight }) {
+  const offsetWithin = (sizesPx, targetPx) => {
+    let consumed = 0;
+    for (let i = 0; i < sizesPx.length; i += 1) {
+      const size = sizesPx[i];
+      const isLast = i === sizesPx.length - 1;
+      if (isLast || targetPx < consumed + size) {
+        const within = size > 0 ? Math.min(1, Math.max(0, (targetPx - consumed) / size)) : 0;
+        return i + within;
+      }
+      consumed += size;
+    }
+    return 0;
+  };
+
+  const colPx = colWidths.map(colWidthToPx);
+  const rowPx = rowHeights.map(rowHeightToPx);
+  const bandWidth = colPx.reduce((a, b) => a + b, 0);
+  const bandHeight = rowPx.reduce((a, b) => a + b, 0);
+  const left = Math.max(0, (bandWidth - imageWidth) / 2);
+  const top = Math.max(0, (bandHeight - imageHeight) / 2);
+
+  return { col: offsetWithin(colPx, left), row: offsetWithin(rowPx, top) };
+}
+
 function titleStyle() {
   return {
     font: { bold: true, size: 16, color: { argb: WHITE } },
@@ -90,5 +133,6 @@ module.exports = {
   MAROON, TOTAL_BAND, WHITE, BLACK,
   LOGO_BAND, TITLE_ROW, HEADER_ROW, FIRST_DATA_ROW, ROW_HEIGHT, LOGO,
   NUM_FMT, SUMMABLE, BORDER,
-  fill, titleStyle, headerStyle, dataStyle, totalStyle, sectionStyle
+  fill, titleStyle, headerStyle, dataStyle, totalStyle, sectionStyle,
+  colWidthToPx, rowHeightToPx, centerImageAnchor
 };

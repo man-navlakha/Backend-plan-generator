@@ -432,6 +432,98 @@ async function reusableCrmPlan(dealId, service, clientBrief) {
   );
 }
 
+/**
+ * @swagger
+ * /plans/generate:
+ *   get:
+ *     summary: Generate a plan from a CRM free-text brief
+ *     description: >
+ *       CRM compatibility API: three query parameters in, a download link out. The free-text
+ *       `client_brief` is reviewed by a model to extract the structured brief before the plan is
+ *       built. A retry with the same deal_id, service and client_brief reuses the previous plan
+ *       unless `force=true` is passed. Requires a CRM API key.
+ *
+ *
+ *       **Why we use this:** the CRM only holds a free-text deal brief, not structured fields, so
+ *       turning it into a priced plan needs a model-assisted extraction step this endpoint owns.
+ *
+ *
+ *       **Who uses it & why:** the CRM system itself, calling server-to-server with an API key,
+ *       typically triggered by a sales rep's action inside the CRM.
+ *
+ *
+ *       **How it helps:** lets a rep get a downloadable quotation straight from the CRM's own deal
+ *       notes with no manual re-entry, and avoids re-spending model tokens by reusing a matching
+ *       prior plan on a retry.
+ *
+ *
+ *       **Main purpose:** CRM compatibility endpoint — free-text brief in, workbook download link out.
+ *     tags: [Plans]
+ *     security:
+ *       - CrmApiKey: []
+ *     parameters:
+ *       - { in: query, name: deal_id, required: true, schema: { type: string, maxLength: 200 } }
+ *       - { in: query, name: service, required: true, schema: { type: string, maxLength: 200 }, description: Media name or slug. }
+ *       - { in: query, name: client_brief, required: true, schema: { type: string, maxLength: 12000 }, description: Free-text brief from the CRM. }
+ *       - { in: query, name: force, schema: { type: boolean }, description: Regenerate instead of reusing a matching prior plan. }
+ *     responses:
+ *       200:
+ *         description: Plan ready, blocked, reused, or the medium is coming soon.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/PlanResult' }
+ *       400:
+ *         description: Missing or invalid field, or unknown service.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       401:
+ *         description: Missing or invalid CRM API key.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       422:
+ *         description: The client brief is missing required details or conflicts with the requested service.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       503:
+ *         description: CRM_API_KEY or OPENAI_API_KEY is not configured on the server.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ * components:
+ *   schemas:
+ *     PlanResult:
+ *       type: object
+ *       properties:
+ *         status: { type: string, enum: [ready, blocked, coming_soon] }
+ *         plan_id: { type: integer }
+ *         reused: { type: boolean }
+ *         deal_id: { type: string }
+ *         company: { type: string }
+ *         service: { type: string }
+ *         download_url: { type: string, format: uri }
+ *         storage_url: { type: string, format: uri }
+ *         file_name: { type: string }
+ *         file_size: { type: integer }
+ *         totals: { type: object }
+ *         budget: { type: number, nullable: true }
+ *         strategy: { type: string }
+ *         legs:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               media: { type: string }
+ *               duration: { type: string }
+ *               lines: { type: integer }
+ *               net: { type: number }
+ *         flags: { type: array, items: { type: object } }
+ *         desk_actions: { type: array, items: { type: object } }
+ *         notes: { type: array, items: { type: string } }
+ *         trace: { type: object }
+ */
 // GET /plans/generate - CRM compatibility API: three query parameters in, link out.
 router.get('/generate', wrap(async (req, res) => {
   if (!authorizeCrm(req, res)) return;
@@ -632,6 +724,68 @@ router.get('/generate', wrap(async (req, res) => {
   });
 }));
 
+/**
+ * @swagger
+ * /plans:
+ *   post:
+ *     summary: Generate a plan from a structured brief
+ *     description: >
+ *       Builds, renders and uploads a plan workbook synchronously (roughly ten to twenty seconds).
+ *       Accepts the brief as a JSON body or, for curl convenience, as query parameters.
+ *
+ *
+ *       **Why we use this:** some callers already have a structured brief and need a deterministic
+ *       endpoint, with no model-extraction step, to turn it into a priced workbook.
+ *
+ *
+ *       **Who uses it & why:** the internal desk UI and any script or integration that submits a
+ *       structured brief directly, instead of going through the CRM free-text path.
+ *
+ *
+ *       **How it helps:** validates the brief, builds and costs the plan, uploads the workbook and
+ *       writes an audit trail in Postgres, all in one synchronous call.
+ *
+ *
+ *       **Main purpose:** structured brief in, plan workbook out — the primary non-CRM plan API.
+ *     tags: [Plans]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [deal_id, company, service]
+ *             properties:
+ *               deal_id: { type: string }
+ *               company: { type: string }
+ *               service: { type: string, description: Media name or slug. }
+ *               budget: { type: number }
+ *               campaign_objective: { type: string }
+ *               target_audience: { type: string }
+ *               target_locations: { type: array, items: { type: string } }
+ *               preferred_catchments: { type: array, items: { type: string } }
+ *               requested_publications: { type: array, items: { type: string } }
+ *               remarks_for_media: { type: string }
+ *               duration_months: { type: number }
+ *               duration_weeks: { type: number }
+ *               creative_duration_seconds: { type: number }
+ *     responses:
+ *       201:
+ *         description: Plan ready or blocked.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/PlanResult' }
+ *       200:
+ *         description: The requested medium has no rates yet (status `coming_soon`).
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/PlanResult' }
+ *       400:
+ *         description: Missing or invalid field.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 // POST /plans - structured brief API.
 router.post('/', wrap(async (req, res) => {
   const brief = readBrief(req);
@@ -645,6 +799,49 @@ router.post('/', wrap(async (req, res) => {
  * to nobody, so Appwrite's own /download answers 401 to anyone without the
  * server key; serving it here keeps the key on the server and keeps a client
  * quotation from being readable to whoever guesses a file id.
+ */
+/**
+ * @swagger
+ * /plans/{id}/download:
+ *   get:
+ *     summary: Download a plan workbook
+ *     description: >
+ *       Streams the generated .xlsx. The Appwrite bucket grants read to nobody, so this endpoint
+ *       is what callers are actually given — it keeps the server key off the client.
+ *
+ *
+ *       **Why we use this:** the workbook lives in a private storage bucket; the Appwrite server
+ *       key that can read it must never leave the backend.
+ *
+ *
+ *       **Who uses it & why:** sales reps and clients following the download link from a plan
+ *       response, and the CRM's own download button.
+ *
+ *
+ *       **How it helps:** serves the file from this API's own domain, so the bucket stays private
+ *       and a guessed file id is still useless without this route.
+ *
+ *
+ *       **Main purpose:** deliver the generated .xlsx quotation to whoever holds the plan's link.
+ *     tags: [Plans]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: The workbook.
+ *         content:
+ *           application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+ *             schema: { type: string, format: binary }
+ *       404:
+ *         description: No such plan.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ *       409:
+ *         description: The plan exists but has no workbook yet (not ready, blocked, or failed).
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
  */
 router.get('/:id(\\d+)/download', wrap(async (req, res) => {
   const plan = await one(
@@ -667,6 +864,57 @@ router.get('/:id(\\d+)/download', wrap(async (req, res) => {
   res.send(buffer);
 }));
 
+/**
+ * @swagger
+ * /plans/{id}:
+ *   get:
+ *     summary: Get a plan generated earlier
+ *     description: >
+ *       **Why we use this:** a caller that already holds a plan_id needs to check its status or
+ *       re-read its details later, without re-running generation.
+ *
+ *
+ *       **Who uses it & why:** internal tooling/dashboards and support engineers investigating one
+ *       specific plan.
+ *
+ *
+ *       **How it helps:** exposes the stored plan, flags and status directly from Postgres.
+ *
+ *
+ *       **Main purpose:** look up one previously generated plan by id.
+ *     tags: [Plans]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: The plan record.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ *                 plan:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     deal_id: { type: string }
+ *                     status: { type: string }
+ *                     plan: { type: object }
+ *                     flags: { type: array, items: { type: object } }
+ *                     grand_total: { type: number }
+ *                     file_name: { type: string }
+ *                     file_url: { type: string }
+ *                     model: { type: string }
+ *                     error: { type: string, nullable: true }
+ *                     created_at: { type: string, format: date-time }
+ *                     completed_at: { type: string, format: date-time, nullable: true }
+ *       404:
+ *         description: No such plan.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 // GET /plans/:id
 router.get('/:id(\\d+)', wrap(async (req, res) => {
   const plan = await one(
@@ -679,6 +927,52 @@ router.get('/:id(\\d+)', wrap(async (req, res) => {
   res.status(200).json({ status: 'ok', plan });
 }));
 
+/**
+ * @swagger
+ * /plans:
+ *   get:
+ *     summary: List recent plans
+ *     description: >
+ *       **Why we use this:** ops needs visibility into recent plan activity without querying
+ *       Postgres directly.
+ *
+ *
+ *       **Who uses it & why:** internal ops/admin dashboards and engineers debugging recent failures.
+ *
+ *
+ *       **How it helps:** gives a recent-first feed of status, totals and flag counts across plans.
+ *
+ *
+ *       **Main purpose:** recent plan activity feed for monitoring.
+ *     tags: [Plans]
+ *     parameters:
+ *       - { in: query, name: limit, schema: { type: integer, default: 20, maximum: 100 } }
+ *     responses:
+ *       200:
+ *         description: Recent plans, newest first.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ *                 count: { type: integer }
+ *                 plans:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       deal_id: { type: string }
+ *                       status: { type: string }
+ *                       grand_total: { type: number }
+ *                       file_name: { type: string }
+ *                       file_url: { type: string }
+ *                       model: { type: string }
+ *                       flag_count: { type: integer }
+ *                       created_at: { type: string, format: date-time }
+ *                       completed_at: { type: string, format: date-time, nullable: true }
+ */
 // GET /plans - recent, newest first.
 router.get('/', wrap(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);

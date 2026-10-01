@@ -13,12 +13,13 @@
     "db:import": "node scripts/import-transit-master.js",
     "db:audit": "node scripts/audit-transit.js",
     "db:import:radio": "node scripts/import-radio-master.js",
+    "db:import:private-radio": "node scripts/import-private-radio-master.js",
     "db:import:cinema": "node --env-file=.env scripts/import-cinema-master.js",
     "db:import:cinema:dry": "node --env-file=.env scripts/import-cinema-master.js --dry",
     "db:build:cinema-legacy": "node scripts/import-cinema-legacy-sqlite.js",
     "db:import:magazine": "node scripts/import-magazine-master.js --replace",
     "db:import:others": "node scripts/import-other-masters.js",
-    "db:import:all": "node scripts/import-transit-master.js && node scripts/import-radio-master.js && node scripts/import-cinema-legacy-sqlite.js && node scripts/import-magazine-master.js --replace && node scripts/import-other-masters.js",
+    "db:import:all": "node scripts/import-transit-master.js && node scripts/import-radio-master.js && node scripts/import-private-radio-master.js && node scripts/import-cinema-legacy-sqlite.js && node scripts/import-magazine-master.js --replace && node scripts/import-other-masters.js",
     "db:smoke:masters": "node scripts/smoke-masters.js",
     "db:smoke:dedicated": "node scripts/smoke-dedicated-masters.js",
     "db:smoke:magazine": "node scripts/smoke-magazine-db.js",
@@ -41,7 +42,9 @@
     "jszip": "^3.10.1",
     "node-appwrite": "^29.0.0",
     "openai": "^7.21.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "overrides": {
     "uuid": "^11.1.1"

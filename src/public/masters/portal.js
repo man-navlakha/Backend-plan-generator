@@ -1,13 +1,8 @@
 const media = {
-  btl: ['BTL & Non-Traditional', 'On-ground placements, audiences and execution options', '/btl/'],
   cinema: ['Cinema', 'Venues, screens and ad-film formats', '/cinema/'],
-  digital: ['Digital', 'Platforms, pricing models and placement variants', '/digital/'],
-  digital_pr: ['Digital PR', 'Publishers, authority and article bookings', '/digital-pr/'],
   magazine: ['Magazine', 'Titles, readership and page positions', '/magazine/'],
-  newspaper: ['Newspaper', 'Publications, languages and local markets', '/newspaper/'],
   radio: ['Radio', 'Stations, time bands and audio spots', '/radio/'],
-  transit: ['Transit', 'Moving media, quantity rules and routes', '/transit/'],
-  tv: ['Television', 'Channels, airtime and time bands', '/tv/']
+  transit: ['Transit', 'Moving media, quantity rules and routes', '/transit/']
 };
 const count = new Intl.NumberFormat('en-IN');
 fetch('/api/masters').then((response) => response.json()).then(({ catalogs }) => {

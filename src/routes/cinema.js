@@ -12,6 +12,49 @@ const FILTERS = {
   source: "AND qi.code IN ('RATE_SOURCE_MISMATCH','UNLINKED_RATE_SOURCE')"
 };
 
+/**
+ * @swagger
+ * /api/cinema/stats:
+ *   get:
+ *     summary: Cinema catalog totals
+ *     description: >
+ *       **Why we use this:** whoever maintains the cinema master needs a quick read of its size
+ *       and shape right after an import, without opening the database.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal, and the data-ops person who just ran an
+ *       import, to confirm it landed correctly.
+ *
+ *
+ *       **How it helps:** one call returns row counts and the per-chain breakdown instead of
+ *       several manual queries.
+ *
+ *
+ *       **Main purpose:** at-a-glance totals for the cinema master.
+ *     tags: [Cinema catalog]
+ *     responses:
+ *       200:
+ *         description: Row counts and a per-chain breakdown.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 products: { type: integer }
+ *                 price_options: { type: integer }
+ *                 price_units: { type: integer }
+ *                 chain_count: { type: integer }
+ *                 issues: { type: integer }
+ *                 affected_products: { type: integer }
+ *                 chains:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name: { type: string }
+ *                       count: { type: integer }
+ *                 imported_at: { type: string, nullable: true }
+ */
 router.get('/stats', (_req, res) => {
   const totals = db.prepare(`SELECT
     (SELECT COUNT(*) FROM products) products,
@@ -26,6 +69,37 @@ router.get('/stats', (_req, res) => {
   res.json({ ...totals, chains, imported_at: imported?.value || null });
 });
 
+/**
+ * @swagger
+ * /api/cinema/filters:
+ *   get:
+ *     summary: Cinema filter values
+ *     description: >
+ *       **Why we use this:** a filter dropdown needs real, current values instead of a hardcoded
+ *       list that drifts from what's actually imported.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal's filter controls on the products browse page.
+ *
+ *
+ *       **How it helps:** keeps filter options in sync with whatever the latest import contains.
+ *
+ *
+ *       **Main purpose:** supply the distinct values used to populate browse filters.
+ *     tags: [Cinema catalog]
+ *     responses:
+ *       200:
+ *         description: Available filter values.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 chains: { type: array, items: { type: string } }
+ *                 tiers: { type: array, items: { type: string } }
+ *                 cities: { type: array, items: { type: string } }
+ *                 zones: { type: array, items: { type: string } }
+ */
 router.get('/filters', (_req, res) => {
   const values = (field, table) => db.prepare(`SELECT DISTINCT ${field} value FROM ${table}
     WHERE ${field} IS NOT NULL AND ${field}<>'' ORDER BY ${field}`).all().map((row) => row.value);
@@ -33,6 +107,46 @@ router.get('/filters', (_req, res) => {
     cities: values('city', 'locations'), zones: values('zone', 'locations') });
 });
 
+/**
+ * @swagger
+ * /api/cinema/problems/summary:
+ *   get:
+ *     summary: Cinema data quality issue summary
+ *     description: >
+ *       **Why we use this:** an import can carry bad rows (duplicate SKUs, missing images, pricing
+ *       below cost); someone needs to see the scale of the problem before fixing it.
+ *
+ *
+ *       **Who uses it & why:** the data-ops team auditing the cinema master right after an import.
+ *
+ *
+ *       **How it helps:** groups issues by code and severity so the worst problems surface first.
+ *
+ *
+ *       **Main purpose:** summarize data quality issues found in the cinema master.
+ *     tags: [Cinema catalog]
+ *     responses:
+ *       200:
+ *         description: Issue totals grouped by code and severity.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 issues: { type: integer }
+ *                 affected_products: { type: integer }
+ *                 errors: { type: integer }
+ *                 warnings: { type: integer }
+ *                 by_code:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       code: { type: string }
+ *                       severity: { type: string, enum: [error, warning] }
+ *                       count: { type: integer }
+ *                       affected_products: { type: integer }
+ */
 router.get('/problems/summary', (_req, res) => {
   const totals = db.prepare(`SELECT COUNT(*) issues,COUNT(DISTINCT product_id) affected_products,
     SUM(severity='error') errors,SUM(severity='warning') warnings FROM data_quality_issues`).get();
@@ -41,6 +155,32 @@ router.get('/problems/summary', (_req, res) => {
   res.json({ ...totals, by_code: byCode });
 });
 
+/**
+ * @swagger
+ * /api/cinema/problems.csv:
+ *   get:
+ *     summary: Download cinema data quality issues as CSV
+ *     description: >
+ *       **Why we use this:** fixing issues usually happens in a spreadsheet, not in this API.
+ *
+ *
+ *       **Who uses it & why:** the data-ops team, to pull every issue into Excel for batch
+ *       correction or to hand to whoever owns the source workbook.
+ *
+ *
+ *       **How it helps:** one CSV carries every issue with its product, chain, city and source
+ *       row, instead of paging through the browse UI.
+ *
+ *
+ *       **Main purpose:** export every data quality issue for offline fixing.
+ *     tags: [Cinema catalog]
+ *     responses:
+ *       200:
+ *         description: UTF-8 CSV with a BOM, one row per issue.
+ *         content:
+ *           text/csv:
+ *             schema: { type: string }
+ */
 router.get('/problems.csv', (_req, res) => {
   const columns = ['issue_id','severity','problem_code','entity_type','source_sheet','source_row',
     'product_name','product_sku','chain','city','price_option_name','price_option_sku',
@@ -60,6 +200,72 @@ router.get('/problems.csv', (_req, res) => {
   res.send(`\uFEFF${csv}`);
 });
 
+/**
+ * @swagger
+ * /api/cinema/products:
+ *   get:
+ *     summary: Browse cinema products
+ *     description: >
+ *       **Why we use this:** someone needs to search and filter the imported catalog to check
+ *       what's actually in it, beyond raw totals.
+ *
+ *
+ *       **Who uses it & why:** the catalog admin portal, for data-ops verifying an import and desk
+ *       staff checking what's currently sellable.
+ *
+ *
+ *       **How it helps:** a filterable, sortable listing with screens, seats, pricing and issue
+ *       counts per product, in one call.
+ *
+ *
+ *       **Main purpose:** browse and search the cinema product catalog.
+ *     tags: [Cinema catalog]
+ *     parameters:
+ *       - { in: query, name: chain, schema: { type: string } }
+ *       - { in: query, name: city, schema: { type: string } }
+ *       - { in: query, name: zone, schema: { type: string } }
+ *       - { in: query, name: tier, schema: { type: string } }
+ *       - { in: query, name: search, schema: { type: string }, description: Matches name, SKU, chain, city or locality. }
+ *       - { in: query, name: problem, schema: { type: string, enum: [any, error, warning, margin, image, location, pricing, screens, source, clean] } }
+ *       - { in: query, name: sort, schema: { type: string, enum: [source, name, price_low, price_high, seats, screens], default: source } }
+ *     responses:
+ *       200:
+ *         description: All matching products (this catalog is not paginated server-side).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       name: { type: string }
+ *                       sku: { type: string }
+ *                       description: { type: string }
+ *                       image: { type: string }
+ *                       cinema_chain: { type: string }
+ *                       tier: { type: string }
+ *                       audience_class: { type: string }
+ *                       seats: { type: integer, nullable: true }
+ *                       screen_recommend: { type: integer, nullable: true }
+ *                       total_screen: { type: integer, nullable: true }
+ *                       rank: { type: number, nullable: true }
+ *                       city: { type: string }
+ *                       state: { type: string }
+ *                       zone: { type: string }
+ *                       locality: { type: string }
+ *                       price_option_count: { type: integer }
+ *                       min_rate: { type: number, nullable: true }
+ *                       max_rate: { type: number, nullable: true }
+ *                       min_buying_rate: { type: number, nullable: true }
+ *                       issue_count: { type: integer }
+ *                       error_count: { type: integer }
+ *                       loss_price_count: { type: integer }
+ *                 pagination: { $ref: '#/components/schemas/Pagination' }
+ */
 router.get('/products', (req, res) => {
   const params = {};
   const conditions = [];
@@ -100,6 +306,43 @@ router.get('/products', (req, res) => {
     pages: data.length ? 1 : 0, show_all: true } });
 });
 
+/**
+ * @swagger
+ * /api/cinema/products/{id}:
+ *   get:
+ *     summary: Get a cinema product
+ *     description: >
+ *       Includes locations, price options (with units and offer rate sources), and data quality issues.
+ *
+ *
+ *       **Why we use this:** diagnosing one product's issues, or quoting its exact rate card,
+ *       needs more detail than the list view gives.
+ *
+ *
+ *       **Who uses it & why:** data-ops drilling into a flagged product, and desk staff checking
+ *       exact pricing for one screen/price option.
+ *
+ *
+ *       **How it helps:** returns locations, the full price-option tree and that product's issues
+ *       in one call.
+ *
+ *
+ *       **Main purpose:** full detail for a single cinema product.
+ *     tags: [Cinema catalog]
+ *     parameters:
+ *       - { in: path, name: id, required: true, schema: { type: integer } }
+ *     responses:
+ *       200:
+ *         description: The product.
+ *         content:
+ *           application/json:
+ *             schema: { type: object }
+ *       404:
+ *         description: Cinema product not found.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/Error' }
+ */
 router.get('/products/:id', (req, res) => {
   const id = Number.parseInt(req.params.id, 10);
   if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: 'Cinema product not found' });

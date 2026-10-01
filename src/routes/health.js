@@ -10,6 +10,50 @@ const log = require('../log');
 const router = express.Router();
 const startedAt = Date.now();
 
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Liveness probe
+ *     description: >
+ *       Is the process up? Cheap, no dependency checks.
+ *
+ *
+ *       **Why we use this:** a hosting platform needs a fast, dependency-free signal that the
+ *       Node process itself is alive, separate from whether its databases or storage are reachable.
+ *
+ *
+ *       **Who uses it & why:** the deployment platform (to decide whether to route traffic to this
+ *       instance) and uptime monitors / on-call dashboards (to know the service hasn't crashed).
+ *
+ *
+ *       **How it helps:** keeps "process crashed" distinct from "process up but a dependency is
+ *       slow or down", so an alert points at the right problem.
+ *
+ *
+ *       **Main purpose:** liveness check for the server process.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Process is alive.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ *                 uptime: { type: number, description: Seconds since process start }
+ *                 startedAt: { type: string, format: date-time }
+ *                 timestamp: { type: string, format: date-time }
+ *                 version: { type: string }
+ *                 environment: { type: string }
+ *                 memory:
+ *                   type: object
+ *                   properties:
+ *                     rssMb: { type: number }
+ *                     heapUsedMb: { type: number }
+ *                     heapTotalMb: { type: number }
+ */
 // Liveness: is the process up? Cheap, no dependency checks.
 router.get('/', (req, res) => {
   const memory = process.memoryUsage();
@@ -30,6 +74,58 @@ router.get('/', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /health/ready:
+ *   get:
+ *     summary: Readiness probe
+ *     description: >
+ *       Checks every master database used by the catalogs, plus Postgres and plan storage when
+ *       configured. A catalog that was never built (e.g. no Excel master on this host) is reported
+ *       as `not_built` and does not fail readiness; a catalog that exists but errors is `down`.
+ *
+ *
+ *       **Why we use this:** the service depends on several databases and external storage, and
+ *       traffic shouldn't be trusted to it until those are actually reachable, not just the process.
+ *
+ *
+ *       **Who uses it & why:** the deployment platform's readiness gate (before marking a new
+ *       deploy healthy) and on-call engineers diagnosing an incident.
+ *
+ *
+ *       **How it helps:** names exactly which dependency (transit/radio/cinema database, Postgres,
+ *       plan storage) is the problem, instead of one generic failure.
+ *
+ *
+ *       **Main purpose:** readiness check across every dependency this API relies on.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: Ready — every configured dependency answered.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ReadinessReport' }
+ *       503:
+ *         description: Not ready — at least one configured dependency failed.
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ReadinessReport' }
+ * components:
+ *   schemas:
+ *     ReadinessReport:
+ *       type: object
+ *       properties:
+ *         status: { type: string, enum: [ready, not_ready] }
+ *         timestamp: { type: string, format: date-time }
+ *         checks:
+ *           type: object
+ *           additionalProperties:
+ *             type: object
+ *             properties:
+ *               status: { type: string, enum: [up, down, not_configured, not_built] }
+ *               latencyMs: { type: number }
+ *               error: { type: string }
+ */
 // Readiness checks every master database used by the catalogs.
 router.get('/ready', async (req, res) => {
   /*

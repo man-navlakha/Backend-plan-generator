@@ -1,5 +1,7 @@
 const express = require('express');
 const path = require('path');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
 const healthRouter = require('./routes/health');
 const briefRouter = require('./routes/brief');
 const transitRouter = require('./routes/transit');
@@ -27,9 +29,7 @@ app.use('/radio', express.static(path.join(__dirname, 'public/radio')));
 app.use('/cinema', express.static(path.join(__dirname, 'public/cinema')));
 app.use('/masters', express.static(path.join(__dirname, 'public/masters')));
 app.use('/media-catalog', express.static(path.join(__dirname, 'public/media-catalog')));
-for (const medium of ['btl', 'digital', 'digital-pr', 'magazine', 'newspaper', 'tv']) {
-  app.use(`/${medium}`, express.static(path.join(__dirname, `public/${medium}`)));
-}
+app.use('/magazine', express.static(path.join(__dirname, 'public/magazine')));
 app.use('/master-images', (req, res, next) => {
   if (!/\.(png|jpe?g|webp|avif|gif|svg)$/i.test(req.path)) return res.sendStatus(404);
   next();
@@ -96,6 +96,9 @@ app.use((req, res, next) => {
     next();
   });
 });
+
+app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/health', healthRouter);
 app.use('/brief', briefRouter);

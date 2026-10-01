@@ -51,7 +51,7 @@ const TOOLS = [
         type: 'object',
         properties: {
           q: { type: 'string', description: 'Free text, e.g. "auto branding lucknow". Tolerates typos.' },
-          media_type: { type: 'string', description: 'Catalog media slug, e.g. bus, auto, cinema, fm_radio.' },
+          media_type: { type: 'string', description: 'Catalog media slug, e.g. bus, auto, cinema, private_radio.' },
           city: { type: 'string' },
           state: { type: 'string' },
           max_rate: { type: 'number', description: 'Exclude options priced above this per unit.' },

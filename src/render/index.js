@@ -25,8 +25,19 @@ function addLogo(workbook, sheet, lastCol) {
   sheet.mergeCells(S.LOGO_BAND.first, 1, S.LOGO_BAND.last, lastCol);
   if (!fs.existsSync(LOGO_PATH)) return;
   const imageId = workbook.addImage({ filename: LOGO_PATH, extension: 'png' });
+  const colWidths = [];
+  for (let c = 1; c <= lastCol; c += 1) colWidths.push(sheet.getColumn(c).width);
+  const rowHeights = [S.ROW_HEIGHT[1], S.ROW_HEIGHT[2], S.ROW_HEIGHT[3], S.ROW_HEIGHT[4]];
+  // Band starts at column A (0-based 0) and row 1 (0-based 0), so the
+  // band-relative anchor is already the sheet anchor — no offset to add.
+  const tl = S.centerImageAnchor({
+    colWidths,
+    rowHeights,
+    imageWidth: S.LOGO.width,
+    imageHeight: S.LOGO.height
+  });
   sheet.addImage(imageId, {
-    tl: { col: 0, row: 0 },
+    tl,
     ext: { width: S.LOGO.width, height: S.LOGO.height },
     editAs: 'oneCell'
   });
@@ -97,9 +108,21 @@ function addCinemaLogo(workbook, sheet, lastCol = CINEMA_LAYOUT.lastCol) {
 
   if (!fs.existsSync(LOGO_PATH)) return;
   const imageId = workbook.addImage({ filename: LOGO_PATH, extension: 'png' });
+  const colWidths = [];
+  for (let c = CINEMA_LAYOUT.firstCol; c <= lastCol; c += 1) colWidths.push(sheet.getColumn(c).width);
+  const rowHeights = [];
+  for (let r = CINEMA_LAYOUT.logoFirstRow; r <= CINEMA_LAYOUT.logoLastRow; r += 1) {
+    rowHeights.push(sheet.getRow(r).height);
+  }
+  const imageWidth = 98;
+  const imageHeight = 86;
+  const anchor = S.centerImageAnchor({ colWidths, rowHeights, imageWidth, imageHeight });
   sheet.addImage(imageId, {
-    tl: { col: 9, row: 4.35 },
-    ext: { width: 98, height: 86 },
+    tl: {
+      col: anchor.col + (CINEMA_LAYOUT.firstCol - 1),
+      row: anchor.row + (CINEMA_LAYOUT.logoFirstRow - 1)
+    },
+    ext: { width: imageWidth, height: imageHeight },
     editAs: 'oneCell'
   });
 }

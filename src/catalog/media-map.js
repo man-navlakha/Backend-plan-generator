@@ -31,6 +31,13 @@ const ALIASES = {
   // The tv master is the whole medium; the index calls it by its long name.
   television: ['tv'],
 
+  // Automatic plan creation now quotes from the generic per-state rate card
+  // (catalog 'private_radio') instead of the old SKU-level fm_radio master.
+  // fm_radio keeps importing and migrating untouched -- it is just no longer
+  // what a "Radio" brief resolves to. Re-point this alias at 'fm_radio' to
+  // switch back.
+  fm_radio: ['private_radio'],
+
   // The BTL master splits balloons by type instead of carrying one medium.
   balloon: ['sky_balloon_branding', 'hot_air_balloon_branding'],
 

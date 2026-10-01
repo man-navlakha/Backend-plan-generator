@@ -133,6 +133,39 @@ async function searchCinemaCatalog(params) {
   }));
 }
 
+const CITY_ALIAS_RE = /^(.*?)\s*\(([^)]+)\)\s*$/;
+
+/**
+ * Some masters (Radio, Cinema, ATM branding, Bus...) store a city as
+ * "Primary Name (Alias)" -- "Bengaluru (Bangalore)", "Kozhikode (Calicut)" --
+ * so a brief naming either half must resolve to that same row. The
+ * parenthetical is occasionally a state/district qualifier instead
+ * ("Aurangabad (Bihar)"), which must stay a state match rather than become a
+ * second city name, so it is skipped whenever it names a real state in this
+ * catalog.
+ */
+function cityAliasKeys(cityKey, stateKeys) {
+  const keys = new Set([cityKey]);
+  const match = CITY_ALIAS_RE.exec(cityKey || '');
+  if (match) {
+    const [, primary, alias] = match;
+    if (primary) keys.add(primary.trim());
+    if (alias && !stateKeys.has(alias.trim())) keys.add(alias.trim());
+  }
+  return keys;
+}
+
+// "Karnataka, India" should resolve to the state Karnataka as readily as
+// "Karnataka" does; the country qualifier only matters when it disambiguates
+// a city from a state, not when it just trails a location name.
+function stripTrailingCountry(key) {
+  const parts = key.split(/\s*[,\u00b7|]\s*/u).filter(Boolean);
+  if (parts.length > 1 && COUNTRY_NAMES.has(parts[parts.length - 1])) {
+    return parts.slice(0, -1).join(' ');
+  }
+  return key;
+}
+
 /**
  * Resolve one CRM location against the city/state pairs carried by a medium.
  *
@@ -147,7 +180,11 @@ function matchRequestedLocation(name, available) {
   const key = locationKey(requested);
   if (!key) return { requested, city: null, state: null, match: 'none' };
 
-  const exactCities = available.filter((row) => row.city_key === key);
+  const cleanedKey = stripTrailingCountry(key);
+  const stateKeys = new Set(available.map((row) => row.state_key));
+  const cityMatches = (row) => cityAliasKeys(row.city_key, stateKeys).has(cleanedKey);
+
+  const exactCities = available.filter(cityMatches);
   if (exactCities.length) {
     const stateNames = [...new Set(exactCities.map((row) => row.state).filter(Boolean))];
     return {
@@ -160,7 +197,7 @@ function matchRequestedLocation(name, available) {
     };
   }
 
-  const exactState = available.find((row) => row.state_key === key);
+  const exactState = available.find((row) => row.state_key === cleanedKey);
   if (exactState) {
     return { requested, city: null, state: exactState.state, match: 'state' };
   }
@@ -173,7 +210,8 @@ function matchRequestedLocation(name, available) {
 
   if (parts.length >= 2) {
     for (const row of available) {
-      if (parts.includes(row.city_key) && parts.includes(row.state_key)) {
+      const cityKeys = cityAliasKeys(row.city_key, stateKeys);
+      if (parts.some((part) => cityKeys.has(part)) && parts.includes(row.state_key)) {
         return { requested, city: row.city, state: row.state, match: 'city' };
       }
     }
@@ -181,11 +219,13 @@ function matchRequestedLocation(name, available) {
 
   // Also accept the common unpunctuated form "Noida Uttar Pradesh" while
   // still requiring an exact catalog city/state pair.
-  const flattened = key.replace(/\s*[,\u00b7|]\s*/gu, ' ');
-  const pair = available.find((row) =>
-    `${row.city_key} ${row.state_key}` === flattened ||
-    `${row.state_key} ${row.city_key}` === flattened
-  );
+  const flattened = cleanedKey.replace(/\s*[,\u00b7|]\s*/gu, ' ');
+  const pair = available.find((row) => {
+    const cityKeys = cityAliasKeys(row.city_key, stateKeys);
+    return [...cityKeys].some((cityKey) =>
+      `${cityKey} ${row.state_key}` === flattened || `${row.state_key} ${cityKey}` === flattened
+    );
+  });
   if (pair) return { requested, city: pair.city, state: pair.state, match: 'city' };
 
   return { requested, city: null, state: null, match: 'none' };

@@ -130,7 +130,27 @@ const resolvers = {
     const { spot_seconds: s, spots_per_day: d, days } = line;
     if (s == null || d == null || days == null) return null;
     return s * d * days;
-  }
+  },
+
+  /*
+   * Radio and TV (format.json's band_label/display_name/spot_seconds/
+   * spots_per_day/cost): both masters hold this under a key the sheet's field
+   * name does not match -- fm_radio and tv both write the time band as the
+   * attribute name "Time Band" rather than band_label, fm_radio names the
+   * station "station" rather than display_name, and neither master has a
+   * "cost" field at all even though their sheet has a Cost column distinct
+   * from Total Cost. None of that is missing data, just a naming gap, so it
+   * resolves here instead of rendering an empty cell the desk has to fill in
+   * by hand on every single plan.
+   */
+  display_name: (line) => line.display_name || line.station || line.product_name || null,
+  band_label: (line) => line.band_label || line.time_band || line['Time Band'] || null,
+  spot_seconds: (line) => line.spot_seconds ?? line.spot_duration_seconds ?? null,
+  spots_per_day: (line) => line.spots_per_day ?? line.spot_repetition_daily ?? null,
+  days: (line) => line.days ?? line.campaign_duration_days ?? null,
+
+  /** The line's own taxable amount -- the sheet shows it separately from Total Cost. */
+  cost: (line) => line.cost ?? line.net ?? null
 };
 
 function escapeRegExp(value) {
