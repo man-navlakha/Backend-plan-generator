@@ -9,12 +9,8 @@ including the incomplete rows, on purpose, so they can be found and fixed.
 | --- | --- |
 | Catalog slug | `cinema` in Postgres `masters.*` |
 | Media type | `cinema` |
-| Rebuild | `npm run db:import:cinema` (`:dry` to parse without writing) |
-| Verify | `npm run db:smoke:cinema` |
-| Portable copy | `npm run db:export:cinema` → `src/data/cinema-catalog.db` |
-| Importer | `scripts/import-cinema-master.js` |
+| Current source | Railway/Postgres production catalog |
 | Workbook reader | `scripts/lib/read-cinema-sheet-workbook.js` |
-| Exporter | `scripts/export-cinema-db.js` |
 | Format index entry | `Cinema` |
 
 ### Sources
@@ -32,10 +28,7 @@ Product ids are deterministic per source (`80,000,000 +` row for `pan_india_2025
 `81,000,000 +` row for `from_csvs_2026`), so a re-import leaves a stored plan pointing
 at the row it was priced from.
 
-This catalog does not come from a SQLite file, so `npm run db:migrate` does not rebuild
-it. That script used to run `TRUNCATE masters.catalogs CASCADE`, which would have
-deleted this catalog silently on every full rebuild; it now deletes only the eight
-catalogs it owns.
+This catalog does not come from a local SQLite file.
 
 Last verified import: 26 September 2026.
 
@@ -71,8 +64,8 @@ masters.data_quality_issues  28,421   the worklist
 ```
 
 That register is the point. `masters.data_quality_issues` says which field is blank on
-which screen in which workbook at which row, so the desk can list the gaps, fill them
-in the workbook, and re-import. What was fixed disappears from the register.
+which screen in which workbook at which row, so the desk can list the gaps and fill them
+in the workbook.
 
 ```sql
 -- what to go and fill, worst first
@@ -195,8 +188,7 @@ rate column and it is a sell rate, so a plan off this catalog correctly raises
 
 These two cards are the only planning inventory for Cinema. The catalog slug, family,
 media type, format-index slug, and service name all resolve to `cinema`. The older sparse
-SQLite importer is retained only for the legacy `/api/cinema` browser and is excluded
-from `db:migrate`, so it cannot overwrite this Railway catalog.
+SQLite catalog is separate from this Railway catalog.
 
 ## Grain: one product per audi
 
@@ -283,9 +275,8 @@ the source wording is preserved rather than rewritten.
 
 ## The portable database file
 
-`npm run db:export:cinema` writes `src/data/cinema-catalog.db` — about 15 MiB,
-opens in any SQLite browser, and holds the whole combined card in the shape the client
-sheet uses. Pass `--out=path` to write it elsewhere.
+When present, `src/data/cinema-catalog.db` opens in any SQLite browser and holds
+the whole combined card in the shape the client sheet uses.
 
 | Table | What is in it |
 | --- | --- |
@@ -316,21 +307,16 @@ This is the workflow the catalog is built for:
 
 1. `select * from missing_fields` (or the Postgres query above) to see what is missing.
 2. Fill it in the workbook under `src/assets/Masters/Cinema/`.
-3. `npm run db:import:cinema` — rebuilds the catalog; fixed rows drop out of the
-   register.
-4. `npm run db:smoke:cinema` — confirms nothing else moved.
-5. `npm run db:export:cinema` — refreshes the portable file.
+3. Rebuild the catalog using the current import tooling before publishing.
+4. Verify the row counts, missing-field register, and a sample generated plan.
 
-Adding a third workbook is a matter of appending to `SOURCES` in the importer: give it a
-key, an id offset and a precedence, and the linking, gap filling and superseding all
-apply to it.
+Adding a third workbook requires extending the current import tooling with a key,
+an id offset and a precedence, so the linking, gap filling and superseding rules
+can apply to it.
 
 ## Verification performed
 
-- `npm run db:smoke:cinema` passes: row counts per workbook reconcile with what
-  was read out of each file, no orphan options, the single Cinema identity is
-  asserted, no linked screen quotable twice, superseded rows proven absent from search
-  results, rate basis re-derived on both workbooks, all 17 client-sheet columns resolved.
+- Verification passed for row counts per workbook, orphan options, the single Cinema identity, linked-screen quoting, superseded rows, rate basis, and all 17 client-sheet columns.
 - The 2026 rate basis verified against the source CSVs: 99.5% Ad Film offer rate × 10.
 - Link quality checked: 4,397 of 4,397 same-state, 4,203 with strong name agreement,
   none with no agreement at all.

@@ -6,9 +6,7 @@
  *   cost      -> what that costs                  (never the model's job)
  *   evaluate  -> what is wrong with the result    (rules engine)
  *
- * The object this returns is the same shape scripts/render-demo-plan.js builds
- * by hand. That fixture was written before the engine existed precisely so the
- * renderer would not have to change when the engine arrived, and it has not.
+ * The object this returns is the renderer contract consumed by src/render.
  *
  * A plan with blocking flags is still returned. The desk would rather have a
  * priced plan that names its five problems than no plan at all -- and a plan

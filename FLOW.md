@@ -363,10 +363,7 @@ Column layouts come from each medium's `format.json`. The generated workbook con
 | `T&C - <Medium>` | Terms |
 | `Notes (Internal)` | Flags, the model's reasoning, what the desk must check |
 
-The plan object the renderer consumes is the same shape
-[scripts/render-demo-plan.js](scripts/render-demo-plan.js) builds by hand. That fixture was written
-before the engine existed so the renderer would not have to change when the engine arrived — and it
-did not.
+The plan object the renderer consumes is the renderer contract used by `src/render`.
 
 #### Cinema format and billing contract
 
@@ -393,9 +390,8 @@ replace verified catalog rows with the old workbook's full inventory.
 ##### The cards as inventory: the `cinema` catalog
 
 Both PAN-India cards are loaded as inventory in their own right, combined into one
-catalog `cinema` under `media_type = 'cinema'`
-([scripts/import-cinema-master.js](scripts/import-cinema-master.js)) — the 2025
-card's 10,118 screens plus 10,547 from `Cinema_PAN_India_From_CSVs.xlsx`. This is what
+catalog `cinema` under `media_type = 'cinema'`: the 2025 card's 10,118 screens
+plus 10,547 from `Cinema_PAN_India_From_CSVs.xlsx`. This is what
 makes them usable when a brief arrives rather than only when a sheet is formatted.
 
 This is the only Cinema planning catalog. `catalogSlugsFor('Cinema')` returns `['cinema']`, and
@@ -421,8 +417,7 @@ Three things about it are worth knowing before touching it:
   2026 card's column says "A/V Slide" but carries **Ad Film** rates (99.5% verified against the
   source CSVs), so those rows are labelled as such.
 
-[db/CINEMA_DATABASE.md](db/CINEMA_DATABASE.md) has the full account, and
-`npm run db:export:cinema` writes the whole thing to a portable SQLite file.
+[db/CINEMA_DATABASE.md](db/CINEMA_DATABASE.md) has the full account.
 
 ### 6. Upload — and why the URL is ours
 
@@ -552,7 +547,7 @@ without "per bus", "All 3 Sides", "minimum billing 1,50,000". One fetch, one com
 ### Location
 
 Transit and BTL have no city columns at all; the city is only inside the product name. Three reads,
-strongest first ([scripts/migrate-to-postgres.js](scripts/migrate-to-postgres.js)):
+strongest first:
 
 1. A trailing **state** anchors the segment before it as the city —
    `"ATM Branding, Mainaguri, West Bengal"`. This is the only read that works for the 4,800 BTL towns
@@ -612,9 +607,6 @@ those catalogs as `not_built`.
 
 ```bash
 npm run db:setup        # create the schema (once)
-npm run db:migrate      # load SQLite masters into Postgres
-npm run db:smoke:pg     # 13 checks on the loaded data
-npm run catalog:try     # search + prefetch against seven sample briefs
 npm test                # brief-review and CRM route contract tests
 npm run start:local     # local server; loads .env automatically
 npm run dev             # local watch server; loads .env automatically

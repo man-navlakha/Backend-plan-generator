@@ -5,8 +5,7 @@
 - Source workbook: `src/assets/Masters/Cinema/cinema.xlsx`
 - Generated SQLite database: `src/data/cinema.db`
 - Current generated size: 24,092,672 bytes (about 23 MiB)
-- Rebuild command: `npm run db:import:cinema`
-- Importer: `scripts/import-cinema-master.js`
+- Rebuild command: unavailable in the current trimmed scripts folder
 - Schema/runtime connection: `src/cinema-db.js`
 - API: `src/routes/cinema.js`
 - Browser desk: `/cinema/`

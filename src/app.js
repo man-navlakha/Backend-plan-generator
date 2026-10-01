@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
 const healthRouter = require('./routes/health');
 const briefRouter = require('./routes/brief');
@@ -97,8 +96,14 @@ app.use((req, res, next) => {
   });
 });
 
+/*
+ * Swagger UI's own assets are loaded from a CDN by src/public/api-docs/index.html rather than
+ * served from node_modules/swagger-ui-dist: on Vercel only api/index.js is traced into the
+ * serverless function, and those dist files are served dynamically (fs/express.static), not via
+ * a traceable require(), so they never made it into the bundle in production.
+ */
 app.get('/api-docs.json', (req, res) => res.json(swaggerSpec));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', express.static(path.join(__dirname, 'public/api-docs')));
 
 app.use('/health', healthRouter);
 app.use('/brief', briefRouter);

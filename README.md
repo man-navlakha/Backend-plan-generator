@@ -23,28 +23,13 @@ variables for production hosts. The CRM generation endpoint additionally require
 | `npm start` | Start with production process environment variables |
 | `npm run start:local` | Start locally and load `.env` |
 | `npm run dev` | Start with file watching and load `.env` |
-| `npm run db:import` | Rebuild the SQLite transit database from `transitmaster.xlsx` |
-| `npm run db:audit` | Print data-quality counts from the imported master |
-| `npm run db:import:radio` | Rebuild the SQLite radio database from `radiomaster.xlsx` |
-| `npm run db:import:cinema` | Rebuild the Railway/Postgres Cinema catalog from both PAN-India workbooks |
-| `npm run db:build:cinema-legacy` | Rebuild the legacy SQLite database used by the local Cinema browser |
-| `npm run db:import:magazine` | Rebuild the lossless six-table Magazine database and preserve the previous database as a timestamped backup |
-| `npm run db:import:others` | Rebuild the shared SQLite database for all nine master workbooks |
-| `npm run db:import:all` | Rebuild Transit, Radio, Cinema, and the shared catalog in dependency order |
-| `npm run db:smoke:masters` | Check every master catalog, detail API, filters, and CSV export |
-| `npm run db:smoke:dedicated` | Check the six dedicated master pages and their media-specific filters |
-| `npm run db:smoke:magazine` | Verify all six Magazine sheet tables and SQLite integrity |
-| `npm run db:smoke:cinema` | Verify the unified Railway/Postgres Cinema catalog |
-| `npm run db:export:cinema` | Export the Cinema catalog to `src/data/cinema-catalog.db` |
-| `npm run plan:demo` | Render the demo plan workbook to `output/` |
-| `npm run plan:upload` | Render it and upload the workbook to the Appwrite bucket |
+| `npm run db:setup` | Create the PostgreSQL schemas and tables from `db/schema.sql` |
 
 ## All masters, one page
 
-Run `npm run db:import:all`, start the server, then open
-`http://localhost:3000/masters/` to choose a dedicated master desk. The six
-new pages are `/btl/`, `/digital/`, `/digital-pr/`, `/magazine/`, `/newspaper/`,
-and `/tv/`; the existing `/transit/`, `/radio/`, and `/cinema/` pages remain.
+Start the server, then open `http://localhost:3000/masters/` to choose a
+dedicated master desk. The active pages are `/transit/`, `/radio/`,
+`/cinema/`, and `/magazine/`.
 Each page presents its own relevant fields, filters, booking options,
 plan-readiness findings, product details, and repair CSV. Product rows load as
 you scroll. Newspaper has no pricing sheet, so its page marks rates as missing
@@ -73,13 +58,8 @@ source workbook, then imported again.
 
 ## Transit master catalog
 
-The transit Excel master is imported into a normalized SQLite database at
-`src/data/transit.db`. Re-run the import whenever the workbook changes:
-
-```bash
-npm run db:import
-npm start
-```
+The transit master catalog is served from the built database files in
+`src/data/`.
 
 Open `http://localhost:3000/transit/` for the HTML/CSS inventory view. It
 shows every matching record on one page and supports text search, media, tier
@@ -104,8 +84,7 @@ Transit API endpoints:
 
 ## Radio master catalog
 
-Run `npm run db:import:radio`, start the server, and open
-`http://localhost:3000/radio/`. The Radio catalog shows every station on one
+Start the server and open `http://localhost:3000/radio/`. The Radio catalog shows every station on one
 page with city, language, audience, frequency, full base pricing, time-band
 variants, buying-cost margins, quantity rules and the workbook's Pending Fixes.
 Problems can be downloaded from `GET /api/radio/problems.csv`; the other Radio
@@ -113,8 +92,7 @@ endpoints mirror Transit under `/api/radio`.
 
 ## Cinema master catalog
 
-Run `npm run db:build:cinema-legacy`, start the server, and open
-`http://localhost:3000/cinema/`. The single-page Cinema catalog covers venues,
+Start the server and open `http://localhost:3000/cinema/`. The single-page Cinema catalog covers venues,
 chains, cities, tiers, seats, screens, ad-film and slide formats, all selling and
 buying rates, and campaign quantity rules. Rows render progressively as you
 scroll so the 6,000+ venue directory stays responsive. Product details also
@@ -143,14 +121,6 @@ older one is retained but non-quotable so a plan cannot bill one audi at two pri
 Every `Cinema` brief searches this catalog directly. There is no second Cinema catalog or
 alternate service name.
 
-```
-npm run db:import:cinema     # rebuild Railway/Postgres from both workbooks
-npm run db:smoke:cinema      # verify
-npm run db:export:cinema     # portable SQLite -> src/data/cinema-catalog.db
-```
-
-The exported file opens in any SQLite browser and has a `plan_sheet` view with exactly the 17
-client-sheet columns, a `missing_fields` worklist, and a `blank_field_count` on every row.
 Full notes in [db/CINEMA_DATABASE.md](db/CINEMA_DATABASE.md).
 
 The data-quality filter checks pricing and margin, images, location, seat and
@@ -290,8 +260,8 @@ The two URLs answer only to a role the file grants read to. On a private bucket
 they need the API key, a session or a file token, so they are not links to paste
 into a client email.
 
-`npm run plan:upload` renders the demo plan and pushes it to the bucket — the
-quickest way to prove the credentials and bucket settings are right.
+Generating a real plan through the API is the quickest way to prove the
+credentials and bucket settings are right.
 
 ## Project structure
 

@@ -175,8 +175,7 @@ CREATE INDEX IF NOT EXISTS briefs_deal_idx ON app.briefs (deal_id);
  * A generated plan: the JSON the renderer consumes, plus where the workbook
  * ended up and what it cost to produce.
  *
- * `plan` is the same object scripts/render-demo-plan.js builds by hand - that
- * fixture is the contract.
+ * `plan` stores the renderer contract used by src/render.
  */
 CREATE TABLE IF NOT EXISTS app.plans (
   id             BIGSERIAL PRIMARY KEY,
