@@ -81,7 +81,9 @@ function readBrief(req) {
     deal_id: pick('deal_id', 'dealId', 'deal'),
     company: pick('company', 'client'),
     service: pick('service', 'media', 'media_type', 'mediaType'),
+    selection_mode: pick('selection_mode', 'selectionMode', 'plan_mode', 'planMode', 'mode', 'request_type', 'requestType') || null,
     budget: parseBudget(pick('budget', 'amount')),
+    budget_behavior: pick('budget_behavior', 'budgetBehavior', 'budget_behaviour', 'budgetBehaviour') || null,
     budget_stated: pick('budget', 'amount') !== undefined,
     campaign_objective: pick('campaign_objective', 'campaignObjective', 'objective') || null,
     target_audience: pick('target_audience', 'targetAudience', 'audience') || null,
@@ -104,6 +106,7 @@ function readBrief(req) {
           .map((s) => s.trim())
           .filter(Boolean),
     remarks_for_media: pick('remarks_for_media', 'remarksForMedia', 'remarks') || null,
+    duration_days: Number(pick('duration_days', 'days')) || undefined,
     duration_months: Number(pick('duration_months', 'months')) || undefined,
     duration_weeks: Number(pick('duration_weeks', 'weeks')) || undefined,
     creative_duration_seconds:
@@ -699,6 +702,15 @@ router.get('/generate', wrap(async (req, res) => {
     deal_id: dealId,
     service: media.name,
     client_brief: clientBrief,
+    selection_mode: firstQueryValue(
+      req.query.selection_mode ||
+      req.query.selectionMode ||
+      req.query.plan_mode ||
+      req.query.planMode ||
+      req.query.mode ||
+      req.query.request_type ||
+      req.query.requestType
+    ) || null,
     ...review.brief
   };
 
@@ -766,6 +778,7 @@ router.get('/generate', wrap(async (req, res) => {
  *               preferred_catchments: { type: array, items: { type: string } }
  *               requested_publications: { type: array, items: { type: string } }
  *               remarks_for_media: { type: string }
+ *               duration_days: { type: number }
  *               duration_months: { type: number }
  *               duration_weeks: { type: number }
  *               creative_duration_seconds: { type: number }

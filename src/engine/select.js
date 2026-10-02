@@ -99,6 +99,16 @@ function cinemaProductionGross() {
   return net * (1 + (Number(billing.gst_rate) || 18) / 100);
 }
 
+function cinemaCommercialMultiplier() {
+  const value = Number(loadRules('Cinema').billing?.listed_value_multiplier);
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+function cinemaUsesReferenceBudget(brief = {}) {
+  const behavior = String(brief.budget_behavior || brief.budget_behaviour || '').toLowerCase();
+  return !/^(?:hard|hard_ceiling|strict|strict_ceiling|do_not_exceed)$/.test(behavior);
+}
+
 function cinemaPreferenceScore(product, brief, modelScreens, screen) {
   let score = modelScreens.has(screen) ? 1000 : 0;
   const productText = `${product.name || ''} ${product.locality || ''} ` +
@@ -121,22 +131,7 @@ function cinemaPreferenceScore(product, brief, modelScreens, screen) {
   return score;
 }
 
-/**
- * A server-checked Cinema recommendation.
- *
- * The model supplies judgement and ranking, but its rough arithmetic can miss
- * minimum billing or omit a requested city. Build a balanced set from the same
- * shortlist, giving the model's screens first preference, then stop below the
- * GST-inclusive budget after reserving the mandatory production charge.
- */
-function selectBalancedCinema(brief, prefetch, modelSelections = []) {
-  const budget = Number(brief.budget) || 0;
-  if (budget <= 0) return null;
-  const products = (prefetch.candidates || []).filter((product) =>
-    /cinema/.test(String(product.media_type || '').toLowerCase())
-  );
-  if (!products.length || products.length !== (prefetch.candidates || []).length) return null;
-
+function cinemaCandidates(brief, products, modelSelections = []) {
   const byProduct = new Map(products.map((product) => [Number(product.id), product]));
   const modelScreens = new Set();
   for (const pick of modelSelections || []) {
@@ -162,7 +157,12 @@ function selectBalancedCinema(brief, prefetch, modelSelections = []) {
         return (chooseRate(a).rate || Infinity) - (chooseRate(b).rate || Infinity);
       })[0];
       const months = monthsFor(product.media_type, brief);
-      const line = costLine(option, { qty, months, product });
+      const line = costLine(option, {
+        qty,
+        months,
+        product,
+        commercialMultiplier: cinemaCommercialMultiplier()
+      });
       if (line.error) continue;
       candidates.push({
         product,
@@ -176,11 +176,293 @@ function selectBalancedCinema(brief, prefetch, modelSelections = []) {
           media_type: product.media_type,
           qty,
           months,
-          why: 'Balanced Cinema recommendation across the client requested locations.'
+          why: 'Geography-first Cinema recommendation in a client-requested market.'
         }
       });
     }
   }
+  return candidates;
+}
+
+/** Human-style proposal: relevant screens in requested cities, independent of budget. */
+function selectRecommendedCinema(brief, prefetch, modelSelections = [], inventoryProducts = null) {
+  const source = inventoryProducts?.length ? inventoryProducts : (prefetch.candidates || []);
+  const products = source.filter((product) =>
+    /cinema/.test(String(product.media_type || '').toLowerCase())
+  );
+  if (!products.length) return null;
+  const candidates = cinemaCandidates(brief, products, modelSelections);
+  const resolvedCities = (prefetch.locations || []).filter((location) => location.match === 'city');
+  const market = (value) => String(value || '').toLowerCase().replace(/^gurgaon$/, 'gurugram').trim();
+  const allowed = new Set(resolvedCities.map((location) =>
+    `${market(location.city)}|${market(location.state)}`
+  ));
+  const relevant = allowed.size
+    ? candidates.filter((candidate) =>
+        allowed.has(`${market(candidate.product.city)}|${market(candidate.product.state)}`)
+      )
+    : candidates;
+  const configuredSource = loadRules('Cinema').billing?.recommended_inventory_source;
+  const sourceRelevant = configuredSource === 'pan_india_2025'
+    ? relevant.filter((candidate) =>
+        candidate.product.attrs?.source_file === configuredSource ||
+        candidate.product.attrs?.linked_screen_code
+      )
+    : relevant;
+  const planned = sourceRelevant.length ? sourceRelevant : relevant;
+  planned.sort((a, b) => {
+    const cityA = market(a.product.city);
+    const cityB = market(b.product.city);
+    const cityOrderA = resolvedCities.findIndex((location) => market(location.city) === cityA);
+    const cityOrderB = resolvedCities.findIndex((location) => market(location.city) === cityB);
+    return cityOrderA - cityOrderB || b.score - a.score || b.gross - a.gross;
+  });
+  if (!planned.length) return null;
+  return {
+    selections: planned.map((candidate) => ({
+      ...candidate.pick,
+      planner_fields: configuredSource ? { cinema_rate_card: configuredSource } : null
+    })),
+    reasoning: [
+      `Recommended Media Plan: ${planned.length} relevant screen(s) across requested cities; budget is treated as a reference, not a geography-cutting ceiling.`,
+      ...(configuredSource ? [`Recommendation priced from the approved ${configuredSource} Cinema rate-card footprint.`] : []),
+      'Preferred chains are prioritised inside each requested city; another city is never substituted to satisfy a chain preference.'
+    ]
+  };
+}
+
+function parseAudienceSize(value) {
+  const text = String(value || '').toLowerCase().replace(/,/g, '').trim();
+  if (!text) return null;
+  const match = /([\d.]+)\s*(k|l|lac|lakh|m|mn|million)?/.exec(text);
+  if (!match) return null;
+  const base = Number(match[1]);
+  if (!Number.isFinite(base)) return null;
+  const unit = match[2] || '';
+  if (unit === 'k') return base * 1000;
+  if (unit === 'l' || unit === 'lac' || unit === 'lakh') return base * 100000;
+  if (unit === 'm' || unit === 'mn' || unit === 'million') return base * 1000000;
+  return base;
+}
+
+function radioRank(product) {
+  const rank = Number(product.attrs?.rank ?? product.attrs?.Rank ?? product.rank);
+  return Number.isFinite(rank) && rank > 0 ? rank : null;
+}
+
+function radioListenership(product) {
+  return parseAudienceSize(
+    product.attrs?.listenership ??
+    product.attrs?.Listenership ??
+    product.listenership
+  );
+}
+
+function radioStationName(product) {
+  return product.attrs?.station || product.attrs?.Station || product.name || 'Radio station';
+}
+
+function radioCityPriority(product, brief, indexFallback = 0) {
+  const requested = (brief.target_locations || [])
+    .map((value) => String(value || '').toLowerCase().trim())
+    .filter(Boolean);
+  if (!requested.length) return Math.max(35, 75 - indexFallback * 8);
+
+  const city = String(product.city || '').toLowerCase();
+  const state = String(product.state || '').toLowerCase();
+  const exactIndex = requested.findIndex((value) => value === city);
+  if (exactIndex >= 0) return Math.max(55, 100 - exactIndex * 15);
+  const stateIndex = requested.findIndex((value) => value === state);
+  if (stateIndex >= 0) return Math.max(45, 85 - stateIndex * 10);
+  return 25;
+}
+
+function radioMarketAllowed(product, brief) {
+  const requested = (brief.target_locations || [])
+    .map((value) => String(value || '').toLowerCase().trim())
+    .filter(Boolean);
+  if (!requested.length) return true;
+  const city = String(product.city || '').toLowerCase();
+  const state = String(product.state || '').toLowerCase();
+  return requested.includes(city) || requested.includes(state);
+}
+
+function isRadioProduct(product) {
+  return /(?:^|_)radio$|private_radio|fm_radio/.test(String(product.media_type || '').toLowerCase());
+}
+
+function radioScore(product, option, brief, context) {
+  const audience = radioListenership(product);
+  const rank = radioRank(product);
+  const { rate } = chooseRate(option);
+  const audienceScore = audience && context.maxAudience
+    ? Math.min(100, (audience / context.maxAudience) * 100)
+    : 50;
+  const rankScore = rank ? Math.max(0, Math.min(100, 110 - rank * 18)) : 50;
+  const efficiencyScore = rate && context.minRate
+    ? Math.min(100, (context.minRate / rate) * 100)
+    : 50;
+  const cityScore = radioCityPriority(product, brief, context.cityOrder.get(locationKey(product.city)) || 0);
+  return roundScore(
+    audienceScore * 0.40 +
+    rankScore * 0.30 +
+    efficiencyScore * 0.20 +
+    cityScore * 0.10
+  );
+}
+
+function roundScore(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function locationKey(value) {
+  return String(value || '').toLowerCase().trim();
+}
+
+function objectiveLabel(brief) {
+  const text = `${brief.campaign_objective || ''} ${brief.remarks_for_media || ''} ${brief.client_brief || ''}`.toLowerCase();
+  if (/launch|store|opening/.test(text)) return 'launch support';
+  if (/lead|enquir|conversion|sales/.test(text)) return 'lead generation';
+  if (/rural|district|penetration/.test(text)) return 'regional penetration';
+  if (/dominance|dominate|share of voice/.test(text)) return 'city dominance';
+  return 'brand awareness';
+}
+
+function selectRadioPlanner(brief, prefetch) {
+  const budget = Number(brief.budget) || 0;
+  if (budget <= 0) return null;
+  const allCandidates = prefetch.candidates || [];
+  if (!allCandidates.length || !allCandidates.every(isRadioProduct)) return null;
+  const products = allCandidates.filter((product) => radioMarketAllowed(product, brief));
+  if (!products.length) return null;
+
+  const optionRows = [];
+  for (const product of products) {
+    for (const option of product.price_options || []) {
+      const { rate } = chooseRate(option);
+      if (rate && rate > 0) optionRows.push({ product, option, rate });
+    }
+  }
+  if (!optionRows.length) return null;
+
+  const audiences = optionRows.map(({ product }) => radioListenership(product)).filter(Boolean);
+  const cityOrder = new Map();
+  [...new Set(products.map((product) => locationKey(product.city)).filter(Boolean))]
+    .forEach((city, index) => cityOrder.set(city, index));
+  const context = {
+    maxAudience: audiences.length ? Math.max(...audiences) : null,
+    minRate: Math.min(...optionRows.map((row) => row.rate)),
+    cityOrder
+  };
+
+  const ranked = optionRows
+    .map((row) => ({ ...row, score: radioScore(row.product, row.option, brief, context) }))
+    .sort((a, b) => b.score - a.score || a.rate - b.rate);
+
+  const bestByCity = [];
+  const usedCities = new Set();
+  for (const row of ranked) {
+    const city = locationKey(row.product.city);
+    if (city && usedCities.has(city)) continue;
+    usedCities.add(city);
+    bestByCity.push(row);
+    if (bestByCity.length >= 6) break;
+  }
+  if (!bestByCity.length) return null;
+
+  const objective = objectiveLabel(brief);
+  const days = Math.max(7, Math.trunc(Number(brief.duration_days || brief.days) || 30));
+  const spotSeconds = Math.max(5, Math.trunc(Number(brief.creative_duration_seconds) || 10));
+  const baseSpots = objective === 'city dominance'
+    ? [18, 14, 10, 8, 6, 5]
+    : objective === 'lead generation'
+      ? [12, 10, 8, 6, 5, 5]
+      : [15, 12, 8, 5, 5, 5];
+
+  const selected = bestByCity.map((row, index) => ({
+    ...row,
+    spotsPerDay: baseSpots[index] || 5
+  }));
+
+  const grossFor = (rows) => rows.reduce((sum, row) => {
+    const qty = spotSeconds * row.spotsPerDay * days;
+    const line = costLine(row.option, { qty, months: 1, product: row.product });
+    return line.error ? sum : sum + Number(line.total || 0);
+  }, 0);
+
+  let gross = grossFor(selected);
+  const ceiling = budget * 0.97;
+  while (gross > ceiling && selected.some((row) => row.spotsPerDay > 5)) {
+    const row = [...selected].reverse().find((item) => item.spotsPerDay > 5);
+    row.spotsPerDay -= 1;
+    gross = grossFor(selected);
+  }
+  while (gross < budget * 0.85) {
+    const row = selected.find((item) => item.spotsPerDay < 22);
+    if (!row) break;
+    row.spotsPerDay += 1;
+    const nextGross = grossFor(selected);
+    if (nextGross > ceiling) {
+      row.spotsPerDay -= 1;
+      break;
+    }
+    gross = nextGross;
+  }
+
+  const selections = selected.map((row, index) => {
+    const qty = spotSeconds * row.spotsPerDay * days;
+    const audience = radioListenership(row.product);
+    const rank = radioRank(row.product);
+    return {
+      product_id: row.product.id,
+      price_option_id: row.option.id,
+      media_type: row.product.media_type,
+      qty,
+      months: 1,
+      planner_fields: {
+        spot_seconds: spotSeconds,
+        spots_per_day: row.spotsPerDay,
+        days,
+        planner_score: row.score,
+        planner_priority: index + 1
+      },
+      why:
+        `${radioStationName(row.product)} ${row.product.city || ''}: score ${row.score}` +
+        `${audience ? `, listenership ${Math.round(audience).toLocaleString('en-IN')}` : ''}` +
+        `${rank ? `, rank #${rank}` : ''}; ${row.spotsPerDay} spots/day for ${objective}.`
+    };
+  });
+
+  const cityMix = selected
+    .map((row) => `${row.product.city || 'Unknown'} ${row.spotsPerDay} spots/day`)
+    .join('; ');
+  return {
+    selections,
+    reasoning: [
+      `Radio planner mode used objective-first scoring for ${objective}: listenership 40%, rank 30%, cost efficiency 20%, city priority 10%.`,
+      `Frequency was weighted by market priority instead of split equally: ${cityMix}.`
+    ],
+    strategy: 'deterministic_radio_planner'
+  };
+}
+
+/**
+ * A server-checked Cinema recommendation.
+ *
+ * The model supplies judgement and ranking, but its rough arithmetic can miss
+ * minimum billing or omit a requested city. Build a balanced set from the same
+ * shortlist, giving the model's screens first preference, then stop below the
+ * GST-inclusive budget after reserving the mandatory production charge.
+ */
+function selectBalancedCinema(brief, prefetch, modelSelections = []) {
+  const budget = Number(brief.budget) || 0;
+  if (budget <= 0) return null;
+  const products = (prefetch.candidates || []).filter((product) =>
+    /cinema/.test(String(product.media_type || '').toLowerCase())
+  );
+  if (!products.length || products.length !== (prefetch.candidates || []).length) return null;
+
+  const candidates = cinemaCandidates(brief, products, modelSelections);
 
   const resolved = (prefetch.locations || []).filter((location) => location.match !== 'none');
   const marketCity = (value) => String(value || '').toLowerCase().replace(/^gurgaon$/, 'gurugram');
@@ -251,6 +533,9 @@ function selectBalancedCinema(brief, prefetch, modelSelections = []) {
  * makes it a usable baseline.
  */
 function selectDeterministic(brief, prefetch) {
+  const radio = selectRadioPlanner(brief, prefetch);
+  if (radio) return radio;
+
   const byMedia = new Map();
   for (const product of prefetch.candidates) {
     if (!byMedia.has(product.media_type)) byMedia.set(product.media_type, []);
@@ -375,7 +660,7 @@ function selectDeterministic(brief, prefetch) {
  * cap that keeps the sheet readable. The desk trims. Silently dropping venues
  * by some invented measure of quality would be worse than a long list.
  */
-const INVENTORY_ROW_CAP = Number(process.env.PLAN_INVENTORY_ROW_CAP || 180);
+const INVENTORY_ROW_CAP = Number(process.env.PLAN_INVENTORY_ROW_CAP || 500);
 
 function selectInventory(brief, prefetch) {
   const selections = [];
@@ -418,10 +703,28 @@ function selectInventory(brief, prefetch) {
 }
 
 /** The rule-based selector appropriate to the brief's mode. */
-function selectWithoutModel(brief, prefetch) {
+function selectWithoutModel(brief, prefetch, options = {}) {
   if (isInventory(brief)) return selectInventory(brief, prefetch);
   const cinema = selectBalancedCinema(brief, prefetch);
-  if (cinema) return { ...cinema, strategy: 'deterministic_cinema' };
+  if (cinema) {
+    if (cinemaUsesReferenceBudget(brief)) {
+      const recommended = selectRecommendedCinema(
+        brief,
+        prefetch,
+        [],
+        options.cinemaInventory
+      );
+      if (recommended) return {
+        ...recommended,
+        budget_fit_selections: cinema.selections,
+        reasoning: [...recommended.reasoning, ...cinema.reasoning],
+        strategy: 'deterministic_cinema_dual'
+      };
+    }
+    return { ...cinema, strategy: 'deterministic_cinema' };
+  }
+  const radio = selectRadioPlanner(brief, prefetch);
+  if (radio) return radio;
   return selectDeterministic(brief, prefetch);
 }
 
@@ -443,7 +746,7 @@ async function selectLines(brief, prefetch, options = {}) {
 
   if (options.strategy === 'deterministic' || !isModelConfigured()) {
     const started = Date.now();
-    const result = selectWithoutModel(brief, prefetch);
+    const result = selectWithoutModel(brief, prefetch, options);
     if (!isModelConfigured() && options.strategy !== 'deterministic') {
       result.reasoning.unshift(
         'OPENAI_API_KEY is not set, so the deterministic selector ran instead of the model.'
@@ -492,7 +795,7 @@ async function selectLines(brief, prefetch, options = {}) {
     }
 
     if (checked.valid.length === 0) {
-      const fallback = selectWithoutModel(brief, prefetch);
+      const fallback = selectWithoutModel(brief, prefetch, options);
       fallback.reasoning.unshift(
         'The model returned no usable selections; the deterministic selector ran instead.'
       );
@@ -507,6 +810,20 @@ async function selectLines(brief, prefetch, options = {}) {
 
     const cinema = selectBalancedCinema(brief, prefetch, checked.valid);
     if (cinema) {
+      if (cinemaUsesReferenceBudget(brief)) {
+        const recommended = selectRecommendedCinema(
+          brief,
+          prefetch,
+          checked.valid,
+          options.cinemaInventory
+        );
+        if (recommended) return {
+          ...result,
+          selections: recommended.selections,
+          budget_fit_selections: cinema.selections,
+          reasoning: [...result.reasoning, ...recommended.reasoning, ...cinema.reasoning]
+        };
+      }
       return {
         ...result,
         selections: cinema.selections,
@@ -521,7 +838,7 @@ async function selectLines(brief, prefetch, options = {}) {
       duration_ms: Date.now() - started,
       error: log.errorDetails(error)
     });
-    const fallback = selectWithoutModel(brief, prefetch);
+    const fallback = selectWithoutModel(brief, prefetch, options);
     fallback.reasoning.unshift(
       `Model selection failed (${error.message}); the deterministic selector ran instead.`
     );
@@ -588,6 +905,7 @@ function validateSelections(selections, prefetch) {
       qty,
       months: months > 0 ? months : 1,
       why: pick.why || null,
+      planner_fields: pick.planner_fields || null,
       from_shortlist: Boolean(known)
     });
   }
@@ -599,6 +917,8 @@ module.exports = {
   selectLines,
   selectDeterministic,
   selectBalancedCinema,
+  selectRecommendedCinema,
+  cinemaUsesReferenceBudget,
   validateSelections,
   isModelConfigured,
   monthsFor,

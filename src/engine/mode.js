@@ -15,7 +15,20 @@
 const COSTED = 'costed';
 const INVENTORY = 'inventory';
 
+function explicitInventoryMode(brief) {
+  const mode = String(
+    brief?.mode ||
+    brief?.plan_mode ||
+    brief?.selection_mode ||
+    brief?.planning_mode ||
+    brief?.request_type ||
+    ''
+  ).toLowerCase();
+  return /^(inventory|options|option_list|catalog|availability)$/.test(mode);
+}
+
 function planMode(brief) {
+  if (explicitInventoryMode(brief)) return INVENTORY;
   return Number(brief?.budget) > 0 ? COSTED : INVENTORY;
 }
 

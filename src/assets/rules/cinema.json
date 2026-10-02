@@ -4,7 +4,9 @@
   "billing": {
     "default_activity_seconds": 10,
     "rate_unit": "per week per second",
-    "making_conversion_cost_per_creative": 5000,
+    "recommended_inventory_source": "pan_india_2025",
+    "listed_value_multiplier": 0.8,
+    "making_conversion_cost_per_creative": 7000,
     "default_creatives": 1,
     "gst_rate": 18,
     "source": "Cinema PAN India 07-04-2025 old.xlsx"

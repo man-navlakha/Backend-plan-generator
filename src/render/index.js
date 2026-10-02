@@ -252,6 +252,12 @@ function addCinemaMediaSheet(workbook, leg, plan, spec, renderOptions = {}) {
   const conversionNet = mediaCharges.reduce((sum, charge) => sum + (Number(charge.net) || 0), 0);
   const conversionGst = mediaCharges.reduce((sum, charge) => sum + (Number(charge.gst) || 0), 0);
   const actualNet = sumLines(leg.lines, 'net');
+  const commercialMultipliers = [...new Set(
+    leg.lines.map((line) => Number(line.commercial_multiplier) || 1)
+  )];
+  const commercialMultiplier = commercialMultipliers.length === 1
+    ? commercialMultipliers[0]
+    : 1;
   const subTotal = actualNet + conversionNet;
   const gst = sumLines(leg.lines, 'gst') + conversionGst;
   const total = subTotal + gst;
@@ -263,7 +269,11 @@ function addCinemaMediaSheet(workbook, leg, plan, spec, renderOptions = {}) {
     },
     {
       label: `Actual Cost : ${leg.duration_label || `${weeks} Weeks`}`,
-      value: { formula: `R${footerStart}*${weeks}`, result: actualNet },
+      value: {
+        formula: `R${footerStart}*${weeks}` +
+          (commercialMultiplier !== 1 ? `*${commercialMultiplier}` : ''),
+        result: actualNet
+      },
       yellow: true
     },
     { label: 'Making & Conversion Cost per Creative', value: conversionNet },
@@ -514,10 +524,16 @@ function addSummarySheet(workbook, plan, placements) {
   let r = totalRow + 2;
   const budgetFirstRow = r;
   const budgetRows = [
-    ['Budget', plan.budget],
+    [plan.budget_behavior === 'REFERENCE_BUDGET' ? 'Reference budget' : 'Budget', plan.budget],
     ['Budget basis', plan.budget_includes_gst ? 'Inclusive of 18% GST' : 'Exclusive of GST'],
-    ['Plan total (incl. GST)', { formula: `H${totalRow}`, result: totals.total }],
-    ['Balance', { formula: `B${budgetFirstRow} - H${totalRow}`, result: plan.budget - totals.total }]
+    ['Recommended plan total (incl. GST)', { formula: `H${totalRow}`, result: totals.total }],
+    ...(plan.budget_fit_totals?.total
+      ? [['Budget-fit option total (incl. GST)', plan.budget_fit_totals.total]]
+      : []),
+    [plan.budget_behavior === 'REFERENCE_BUDGET' ? 'Variance to reference' : 'Balance', {
+      formula: `B${budgetFirstRow} - H${totalRow}`,
+      result: plan.budget - totals.total
+    }]
   ];
   for (const [label, value] of budgetRows) {
     const labelCell = sheet.getCell(r, 1);
@@ -796,6 +812,16 @@ async function buildPlanWorkbook(plan, context = {}) {
       sheetName: 'Recommended Plan',
       title: 'RECOMMENDED CINEMA PLAN'
     } : {});
+  }
+  for (const leg of mergeLegsForWorkbook(plan.budget_fit_legs || [])) {
+    addMediaSheet(workbook, leg, {
+      ...renderPlan,
+      charges: plan.budget_fit_charges || []
+    }, {
+      inventory: false,
+      sheetName: 'Budget-Fit Option',
+      title: 'BUDGET-FIT CINEMA OPTION'
+    });
   }
   for (const leg of renderLegs) addTermsSheet(workbook, leg);
   addNotesSheet(workbook, renderPlan);

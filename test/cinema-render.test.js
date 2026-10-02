@@ -8,11 +8,12 @@ const {
   billingQuantity,
   buildCharges,
   buildCompleteCinemaLeg,
-  requestedCinemaCreative
+  requestedCinemaCreative,
+  validateCinemaGeography
 } = require('../src/engine/build');
 const { buildPlanWorkbook } = require('../src/render');
 const { planMode } = require('../src/engine/mode');
-const { selectBalancedCinema } = require('../src/engine/select');
+const { selectBalancedCinema, selectRecommendedCinema } = require('../src/engine/select');
 const { loadRules } = require('../src/rules');
 const { applyConstraints } = require('../src/rules/evaluate');
 
@@ -165,11 +166,11 @@ test('Cinema duration uses requested weeks and correct GST does not raise a warn
     media: 'Cinema',
     label: 'Making & Conversion Cost per Creative',
     quantity: 1,
-    unit_rate: 5000,
+    unit_rate: 7000,
     gst_rate: 18,
-    net: 5000,
-    gst: 900,
-    total: 5900,
+    net: 7000,
+    gst: 1260,
+    total: 8260,
     source: 'Cinema PAN India 07-04-2025 old.xlsx'
   }]);
 
@@ -285,9 +286,113 @@ test('Cinema recommendation is budget-safe and covers every requested city', () 
     remarks_for_media: 'Creative: Video. Preferred chain: PVR and INOX.'
   }, prefetch, modelSelections);
 
-  assert.equal(result.selections.length, 7);
+  assert.equal(result.selections.length, 8);
   assert.ok(result.selections.some((pick) => pick.product_id === noida.id));
   assert.ok(result.selections.some((pick) => pick.product_id === gurugram.id));
+});
+
+test('Cinema recommended plan is geography-first and independent of the reference budget', () => {
+  const makeProduct = (id, city, state, chain = 'Qube') => ({
+    id,
+    media_type: 'cinema',
+    name: `${chain} ${city}`,
+    city,
+    state,
+    attrs: { cinema_chain: chain, audience_class: 'Gold' },
+    price_options: [{
+      id: id * 10,
+      sku: `CINEMA${id}SCREEN-1ADFILM`,
+      name: 'SCREEN-1ADFILM',
+      template: 'Ad Film',
+      offer_rate: 1000,
+      pricing_unit: 'per week per second',
+      gst: 18,
+      attrs: {}
+    }]
+  });
+  const requested = [
+    ['Bellary', 'Karnataka'], ['Raichur', 'Karnataka'],
+    ['Guntur', 'Andhra Pradesh'], ['Kurnool', 'Andhra Pradesh'],
+    ['Warangal', 'Telangana'], ['Khammam', 'Telangana']
+  ];
+  const products = requested.map(([city, state], index) =>
+    makeProduct(index + 1, city, state, city === 'Warangal' ? 'PVR-INOX' : 'Qube')
+  );
+  products.push(makeProduct(99, 'Cyberabad', 'Telangana', 'PVR-INOX'));
+  const prefetch = {
+    candidates: products,
+    locations: requested.map(([city, state]) => ({ requested: city, city, state, match: 'city' }))
+  };
+
+  const result = selectRecommendedCinema({
+    budget: 100000,
+    creative_duration_seconds: 10,
+    duration_weeks: 4,
+    remarks_for_media: 'Preferred chain: PVR and INOX.'
+  }, prefetch, [], products);
+
+  assert.equal(result.selections.length, 6);
+  assert.deepEqual(new Set(result.selections.map((pick) => pick.product_id)), new Set([1, 2, 3, 4, 5, 6]));
+  assert.equal(result.selections.some((pick) => pick.product_id === 99), false);
+});
+
+test('Cinema geography validation catches missing and substituted cities', () => {
+  const result = validateCinemaGeography([
+    { city: 'Bellary' },
+    { city: 'Cyberabad' }
+  ], [
+    { requested: 'Bellary', city: 'Bellary', match: 'city' },
+    { requested: 'Warangal', city: 'Warangal', match: 'city' }
+  ]);
+  assert.deepEqual(result.missing, ['Warangal']);
+  assert.deepEqual(result.unexpected, ['cyberabad']);
+});
+
+test('Cinema commercial rules reproduce the Dhanuka calculation', () => {
+  const listed = costLine({
+    id: 1,
+    sku: 'DHANUKA',
+    name: 'Dhanuka listed cinema value',
+    offer_rate: 107440,
+    pricing_unit: 'per second',
+    gst: 18,
+    attrs: {}
+  }, {
+    qty: 10,
+    months: 1,
+    product: { id: 1, media_type: 'cinema', name: 'Dhanuka screens' },
+    commercialMultiplier: 0.8
+  });
+  const charge = buildCharges([{ media: 'Cinema', lines: [listed] }])[0];
+  assert.equal(listed.list_net, 1074400);
+  assert.equal(listed.net, 859520);
+  assert.equal(charge.net, 7000);
+  assert.equal(listed.total + charge.total, 1022493.6);
+});
+
+test('Cinema dual plan renders recommendation and budget-fit sheets separately', async () => {
+  const line = cinemaLine();
+  const workbook = await buildPlanWorkbook({
+    title: 'Dhanuka cinema plan',
+    client_name: 'Dhanuka',
+    budget: 100000,
+    budget_behavior: 'REFERENCE_BUDGET',
+    budget_includes_gst: true,
+    legs: [{ media: 'Cinema', scope: 'Recommended', duration_label: '4 Weeks', lines: [line], notes: [] }],
+    budget_fit_legs: [{ media: 'Cinema', scope: 'Budget fit', duration_label: '4 Weeks', lines: [line], notes: [] }],
+    client_options_legs: [{ media: 'Cinema', scope: 'Options', duration_label: '4 Weeks', lines: [line], notes: [] }],
+    charges: [],
+    budget_fit_charges: [],
+    budget_fit_totals: { total: line.total },
+    reserves: [],
+    flags: [],
+    desk_actions: [],
+    guidance: []
+  });
+  assert.ok(workbook.getWorksheet('Recommended Plan'));
+  assert.ok(workbook.getWorksheet('Budget-Fit Option'));
+  assert.equal(workbook.getWorksheet('Budget-Fit Option').getCell('B13').value, 'BUDGET-FIT CINEMA OPTION');
+  assert.ok(workbook.getWorksheet('Summary').getColumn(1).values.includes('Reference budget'));
 });
 
 test('A brief with no budget renders the inventory sheet, not a costed plan', async () => {
@@ -325,6 +430,8 @@ test('A brief with no budget renders the inventory sheet, not a costed plan', as
 
   assert.equal(planMode({ budget: null }), 'inventory');
   assert.equal(planMode({ budget: 500000 }), 'costed');
+  assert.equal(planMode({ budget: 500000, selection_mode: 'inventory' }), 'inventory');
+  assert.equal(planMode({ budget: 500000, request_type: 'options' }), 'inventory');
 
   const workbook = await buildPlanWorkbook({
     mode: 'inventory',

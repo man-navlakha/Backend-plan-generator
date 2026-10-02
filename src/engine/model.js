@@ -238,6 +238,8 @@ Rules you must follow:
   that inventory. Cover every requested city that has inventory; do not spend the whole budget in one city
   and omit another requested city. Prioritise named chains, venues and catchments. If the budget cannot buy
   at least one suitable screen in every requested city, explain that in concerns instead of substituting a city.
+- Cinema geography is absolute: requested city -> suitable cinema -> preferred chain. Never add another
+  city merely to satisfy PVR, INOX, or another chain preference.
 - SPEND THE BUDGET. The client has allocated this money and expects a plan that uses it. Aim to land
   between 85% and 97% of the budget. A plan that spends a fraction of what was allocated is a failed
   plan -- it will be rejected and reworked. Before you answer, add up roughly what your selections
@@ -249,6 +251,17 @@ Rules you must follow:
   beats 15 buses and a handful of everything else.
 - Spread across media only where it serves the brief. Two media bought properly beat four bought thinly.
 - Transit and outdoor need at least 2 months to work. Radio, cinema and digital are bought in bursts.
+- For Radio, think like a senior radio media planner, not a calculator. Start from the campaign
+  objective, then balance geography, station strength, audience size, rank, cost efficiency and
+  frequency. Do not split spots equally across every station by default.
+- For Radio, score each station mentally using this weighting: listenership 40%, station rank 30%,
+  cost efficiency 20%, city priority 10%. Prefer the highest-scoring station mix, not simply the
+  cheapest stations.
+- For Radio, assign frequency by market priority. A dominant city can get 15+ spots/day while a
+  support city gets 5-8 spots/day. If the client target is Punjab, do not add Jammu only because
+  inventory exists there; use only requested geography unless the brief asks for that state/market.
+- For Radio, explain the human planner logic in why: objective, city role, station strength,
+  listenership/rank/cost efficiency, and why that frequency was chosen.
 - If the brief asks for a city or a medium the catalog does not carry, say so in concerns.
   Do not substitute another city silently.
 - For Magazine, every title in requested_publications is mandatory. Select its exact catalog title
@@ -267,14 +280,15 @@ Rules you must follow:
 const SYSTEM_INVENTORY = `You are a media planner at an Indian out-of-home advertising agency,
 drawing up a list of available inventory from the agency's own rate card.
 
-The client has NOT stated a budget. You are not buying anything. You are choosing what to SHOW:
-an options list the desk sends so the client can pick from it.
+You are not buying anything. You are choosing what to SHOW: an options list the desk sends so the
+client can pick from it. A budget may be present only as context; do not depend on it and do not use
+it as a ceiling.
 
 Rules you must follow:
 - Return only product_id, price_option_id, qty and months. Never a rate, a total or any rupee figure.
 - Only use ids that appear in the shortlist or in a tool result. Never guess an id.
-- There is no budget. Never leave inventory out because it looks expensive, and never try to hit
-  a total. Cost is not your concern here.
+- Never leave inventory out because it looks expensive, and never try to hit a total. Cost is shown
+  so the client can choose; it is not a planning limit in this mode.
 - If the brief explicitly asks for a minimum-cost or low-budget proposal, prefer the lowest suitable
   rates among the requested inventory. There is still no spending ceiling, so do not invent one.
 - Cover every city the brief asks for. A city the catalog carries and your list omits reads to the
@@ -320,15 +334,17 @@ async function selectWithModel(brief, prefetch, options = {}) {
             company: brief.company,
             service: brief.service,
             budget: inventory ? undefined : brief.budget,
+            budget_context: inventory ? brief.budget || null : undefined,
             budget_range:
               !inventory && brief.budget_min && brief.budget_max
                 ? { minimum: brief.budget_min, maximum: brief.budget_max }
                 : null,
-            no_budget_stated: inventory || undefined,
+            options_list_mode: inventory || undefined,
             objective: brief.campaign_objective,
             audience: brief.target_audience,
             locations: brief.target_locations,
             preferred_catchments: brief.preferred_catchments || [],
+            duration_days: brief.duration_days || null,
             duration_months: brief.duration_months || null,
             duration_weeks: brief.duration_weeks || null,
             creative_duration_seconds: brief.creative_duration_seconds || null,

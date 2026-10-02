@@ -15,7 +15,7 @@
 
 const { prefetchForBrief, fetchCompleteCinemaInventory } = require('../catalog/prefetch');
 const { getProduct } = require('../catalog/search');
-const { selectLines } = require('./select');
+const { selectLines, cinemaUsesReferenceBudget } = require('./select');
 const { costLine, totalPlan, round2 } = require('./cost');
 const { loadRules } = require('../rules');
 const { planMode, INVENTORY } = require('./mode');
@@ -37,6 +37,21 @@ function displayName(mediaType) {
   const canonical = value.toLowerCase();
   if (canonical === 'cinema') return 'Cinema';
   return DISPLAY_NAME.get(canonical) || value;
+}
+
+function validateCinemaGeography(lines = [], locations = []) {
+  const key = (value) => String(value || '').toLowerCase().replace(/^gurgaon$/, 'gurugram').trim();
+  const requested = new Map(
+    locations
+      .filter((location) => location.match === 'city' && location.city)
+      .map((location) => [key(location.city), location.requested || location.city])
+  );
+  if (!requested.size) return { missing: [], unexpected: [] };
+  const actual = new Set(lines.map((line) => key(line.city || line.market)).filter(Boolean));
+  return {
+    missing: [...requested].filter(([city]) => !actual.has(city)).map(([, label]) => label),
+    unexpected: [...actual].filter((city) => !requested.has(city))
+  };
 }
 
 function publicationKey(value) {
@@ -411,9 +426,13 @@ async function buildPlan(brief, options = {}) {
   const completeCinemaInventoryPromise = cinemaBrief
     ? Promise.resolve(options.completeCinemaInventory || fetchCompleteCinemaInventory(brief, prefetch))
     : Promise.resolve([]);
+  const completeCinemaProducts = await completeCinemaInventoryPromise;
 
   // 2. Selection -- the only step that may be a model.
-  const selection = await selectLines(brief, prefetch, options);
+  const selection = await selectLines(brief, prefetch, {
+    ...options,
+    cinemaInventory: completeCinemaProducts
+  });
   trace.push({ step: 'select', strategy: selection.strategy, lines: selection.selections.length });
 
   if (selection.selections.length === 0 && requestedPublications.length === 0) {
@@ -438,15 +457,21 @@ async function buildPlan(brief, options = {}) {
   // 3. Costing. Selections carry ids; the rows are re-read from the catalog so
   //    a rate can never arrive from anywhere but the master.
   const byMedia = new Map();
+  const budgetFitByMedia = new Map();
   const flags = [];
   const deskActions = [];
 
   // Picks cluster heavily on a few venues -- an inventory sheet lists a dozen
   // screens from one multiplex -- and each lookup is a round trip.
-  const productCache = new Map();
+  const productCache = new Map(
+    [...(prefetch.candidates || []), ...completeCinemaProducts]
+      .filter((product) => product?.id != null)
+      .map((product) => [Number(product.id), Promise.resolve(product)])
+  );
   const loadProduct = async (id) => {
-    if (!productCache.has(id)) productCache.set(id, await getProduct(id));
-    return productCache.get(id);
+    const key = Number(id);
+    if (!productCache.has(key)) productCache.set(key, Promise.resolve(getProduct(id)));
+    return productCache.get(key);
   };
   const listedScreens = new Set();
   let duplicateScreens = 0;
@@ -478,12 +503,24 @@ async function buildPlan(brief, options = {}) {
       qty: billingQuantity(product, pick, brief),
       months: billingPeriods(option, pick, brief)
     };
-    const line = costLine(option, {
+    const referenceRate = effectivePick.planner_fields?.cinema_rate_card === 'pan_india_2025'
+      ? Number(product.attrs?.other_source_rate_10s_week)
+      : null;
+    const costingOption = referenceRate > 0
+      ? { ...option, offer_rate: referenceRate / 10, discounted_rate: null, buying_rate: null }
+      : option;
+    const line = costLine(costingOption, {
       qty: effectivePick.qty,
       months: effectivePick.months,
       product,
-      applyMinimumBilling: !inventory
+      applyMinimumBilling: !inventory,
+      commercialMultiplier: !inventory && /cinema/i.test(String(product.media_type || ''))
+        ? Number(loadRules('Cinema').billing?.listed_value_multiplier) || 1
+        : 1
     });
+    if (!line.error && effectivePick.planner_fields && typeof effectivePick.planner_fields === 'object') {
+      Object.assign(line, effectivePick.planner_fields);
+    }
 
     if (line.error) {
       flags.push({
@@ -519,6 +556,27 @@ async function buildPlan(brief, options = {}) {
     byMedia.get(media).push({ line, product, option, pick: effectivePick });
   }
 
+  for (const pick of selection.budget_fit_selections || []) {
+    const product = await loadProduct(pick.product_id);
+    const option = product?.price_options?.find((item) => item.id === pick.price_option_id);
+    if (!product || !option) continue;
+    const effectivePick = {
+      ...pick,
+      qty: billingQuantity(product, pick, brief),
+      months: billingPeriods(option, pick, brief)
+    };
+    const line = costLine(option, {
+      qty: effectivePick.qty,
+      months: effectivePick.months,
+      product,
+      commercialMultiplier: Number(loadRules('Cinema').billing?.listed_value_multiplier) || 1
+    });
+    if (line.error) continue;
+    const media = displayName(product.media_type || pick.media_type);
+    if (!budgetFitByMedia.has(media)) budgetFitByMedia.set(media, []);
+    budgetFitByMedia.get(media).push({ line, product, option, pick: effectivePick });
+  }
+
   if (byMedia.size === 0 && requestedPublications.length === 0) {
     return {
       status: 'blocked',
@@ -544,10 +602,39 @@ async function buildPlan(brief, options = {}) {
       notes: buildLegNotes(entries)
     });
   }
+  const budgetFitLegs = [];
+  for (const [media, entries] of budgetFitByMedia) {
+    const months = entries[0].pick.months;
+    budgetFitLegs.push({
+      media,
+      scope: entries.map((entry) => `${entry.product.name} - ${entry.option.name}`).join('; ').slice(0, 300),
+      duration_label: durationLabel(months, entries[0].option.pricing_unit),
+      lines: entries.map((entry) => entry.line),
+      notes: buildLegNotes(entries)
+    });
+  }
 
   ensureRequestedMagazineRows(legs, brief, prefetch, flags, deskActions, inventory);
 
-  const completeCinemaProducts = await completeCinemaInventoryPromise;
+  if (cinemaBrief && legs.length) {
+    const geography = validateCinemaGeography(
+      legs.flatMap((leg) => leg.lines || []),
+      prefetch.locations || []
+    );
+    if (geography.missing.length) flags.push({
+      severity: 'block',
+      id: 'cinema.requested_city_missing',
+      message: `Recommended Cinema plan is missing requested cities: ${geography.missing.join(', ')}.`,
+      source: 'engine'
+    });
+    if (geography.unexpected.length) flags.push({
+      severity: 'block',
+      id: 'cinema.unrequested_city',
+      message: `Recommended Cinema plan contains unrequested cities: ${geography.unexpected.join(', ')}.`,
+      source: 'engine'
+    });
+  }
+
   const completeCinemaLeg = cinemaBrief
     ? buildCompleteCinemaLeg(
         completeCinemaProducts.length ? completeCinemaProducts : prefetch.candidates,
@@ -580,8 +667,11 @@ async function buildPlan(brief, options = {}) {
   const reserves = [];
   const charges = inventory ? [] : buildCharges(legs);
   const totals = totalPlan(legs, reserves, charges);
+  const budgetFitCharges = inventory ? [] : buildCharges(budgetFitLegs);
+  const budgetFitTotals = totalPlan(budgetFitLegs, [], budgetFitCharges);
   const budget = Number(brief.budget) || 0;
-  if (!inventory && budget > 0 && totals.total > budget) {
+  const referenceBudget = cinemaBrief && cinemaUsesReferenceBudget(brief);
+  if (!inventory && !referenceBudget && budget > 0 && totals.total > budget) {
     flags.push({
       severity: 'block',
       id: 'budget.exceeded',
@@ -591,9 +681,19 @@ async function buildPlan(brief, options = {}) {
       source: 'engine'
     });
   }
+  if (budgetFitLegs.length && budget > 0 && budgetFitTotals.total > budget) {
+    flags.push({
+      severity: 'block',
+      id: 'cinema.budget_fit_exceeded',
+      message:
+        `Budget-fit option totals ${Math.round(budgetFitTotals.total).toLocaleString('en-IN')} ` +
+        `against a budget of ${Math.round(budget).toLocaleString('en-IN')}.`,
+      source: 'engine'
+    });
+  }
 
   const unspent = round2(budget - totals.total);
-  if (!inventory && budget > 0 && unspent > budget * 0.15) {
+  if (!inventory && !referenceBudget && budget > 0 && unspent > budget * 0.15) {
     const severelyUnderspent = unspent > budget * 0.30;
     flags.push({
       severity: severelyUnderspent ? 'block' : 'warn',
@@ -632,13 +732,17 @@ async function buildPlan(brief, options = {}) {
     objective: brief.campaign_objective || null,
     target_location: (brief.target_locations || []).join(', ') || null,
     legs,
+    budget_fit_legs: budgetFitLegs,
     client_options_legs: clientOptionsLegs,
     charges,
+    budget_fit_charges: budgetFitCharges,
     reserves,
     flags: deduped,
     desk_actions: [...new Set(deskActions)],
     guidance: [...prefetch.notes, ...selection.reasoning],
     totals,
+    budget_fit_totals: budgetFitTotals,
+    budget_behavior: referenceBudget ? 'REFERENCE_BUDGET' : 'HARD_CEILING',
     generated_at: new Date().toISOString(),
     strategy: selection.strategy
   };
@@ -703,5 +807,6 @@ module.exports = {
   requestedMagazinePublications,
   ensureRequestedMagazineRows,
   requestedCinemaCreative,
-  buildCompleteCinemaLeg
+  buildCompleteCinemaLeg,
+  validateCinemaGeography
 };

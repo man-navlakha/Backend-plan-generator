@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const {
   matchRequestedLocation,
   cinemaCityValues,
+  scopePlanningLocations,
   dedupeCinemaProducts
 } = require('../src/catalog/prefetch');
 
@@ -69,6 +70,16 @@ test('retains state-only matching and rejects an unknown location', () => {
 test('Cinema search treats Gurugram and Gurgaon as one market', () => {
   assert.deepEqual(cinemaCityValues('Gurugram'), ['Gurugram', 'Gurgaon']);
   assert.deepEqual(cinemaCityValues('Gurgaon'), ['Gurgaon', 'Gurugram']);
+});
+
+test('Cinema city requests suppress broader state searches', () => {
+  const scoped = scopePlanningLocations([
+    { requested: 'Karnataka', city: null, state: 'Karnataka', match: 'state' },
+    { requested: 'Bellary', city: 'Bellary', state: 'Karnataka', match: 'city' },
+    { requested: 'Raichur', city: 'Raichur', state: 'Karnataka', match: 'city' }
+  ], ['cinema']);
+  assert.deepEqual(scoped.locations.map((location) => location.requested), ['Bellary', 'Raichur']);
+  assert.deepEqual(scoped.ignoredStates.map((location) => location.requested), ['Karnataka']);
 });
 
 test('Cinema deduplication keeps the complete per-audi row over its sparse alias', () => {

@@ -65,7 +65,7 @@ const resolvers = {
 
   cinema_weekly_rate: (line) => {
     const weeks = Math.max(1, Number(line.months) || 1);
-    return round2((Number(line.net) || 0) / weeks);
+    return round2((Number(line.list_net ?? line.net) || 0) / weeks);
   },
 
   /**

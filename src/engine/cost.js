@@ -130,7 +130,7 @@ function lineCatalogFields(product = {}, option = {}) {
  */
 function costLine(option, {
   qty, months = 1, product = {}, allowDiscount = true, addonTotal = null,
-  applyMinimumBilling = true
+  applyMinimumBilling = true, commercialMultiplier = 1
 } = {}) {
   const adjustments = [];
 
@@ -187,6 +187,16 @@ function costLine(option, {
   const addon = num(addonTotal) ?? addonFromOption(option, quantity);
   if (addon !== null && addon > 0) net = round2(net + addon);
 
+  const listNet = net;
+  const multiplier = Number(commercialMultiplier);
+  if (Number.isFinite(multiplier) && multiplier > 0 && multiplier !== 1) {
+    net = round2(net * multiplier);
+    adjustments.push({
+      type: 'commercial_multiplier',
+      message: `Commercial factor of ${Math.round(multiplier * 100)}% applied to the listed value.`
+    });
+  }
+
   const gstRate = num(option.gst) ?? DEFAULT_GST;
   const gst = round2((net * gstRate) / 100);
 
@@ -221,6 +231,8 @@ function costLine(option, {
     addon_total: addon,
     minimum_billing: minimumBilling,
     buying_rate: buying,
+    list_net: listNet,
+    commercial_multiplier: Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1,
     net,
     gst,
     total: round2(net + gst),

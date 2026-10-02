@@ -275,6 +275,14 @@ function hasExplicitBlankBudget(clientBrief) {
   return false;
 }
 
+function cinemaBudgetBehavior(service, clientBrief) {
+  if (!/cinema/i.test(String(service || ''))) return 'HARD_CEILING';
+  const text = String(clientBrief || '').toLowerCase();
+  return /(?:strict|hard|maximum|not exceed|within)\s+(?:the\s+)?budget|budget\s+(?:cap|ceiling)/i.test(text)
+    ? 'HARD_CEILING'
+    : 'REFERENCE_BUDGET';
+}
+
 /** Normalize model output again at the trust boundary. */
 function normalizeReview(value) {
   const suppliedBudget = Number(value?.budget);
@@ -374,6 +382,7 @@ async function reviewClientBrief(clientBrief, options = {}) {
   }
 
   const normalized = normalizeReview(parsed);
+  normalized.brief.budget_behavior = cinemaBudgetBehavior(options.service, clientBrief);
   const deterministicRange = extractBudgetRange(clientBrief);
   if (deterministicRange) {
     normalized.brief.budget_min = deterministicRange.minimum;
@@ -437,6 +446,7 @@ module.exports = {
   extractPreferredCatchments,
   extractRequestedPublications,
   hasExplicitBlankBudget,
+  cinemaBudgetBehavior,
   isConfigured,
   MODEL,
   CLIENT_BRIEF_SCHEMA

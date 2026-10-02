@@ -22,6 +22,7 @@ const { rows } = require('../pg');
 const formatIndex = require('../assets/formats/format_index.json');
 const { searchProducts } = require('./search');
 const { catalogSlugsFor, absenceReason } = require('./media-map');
+const { isInventory } = require('../engine/mode');
 
 // How much gets through to the prompt. Roughly 60 products x ~700 tokens of
 // JSON each sits near 40k tokens -- large, but one call, and complete.
@@ -53,6 +54,15 @@ function locationKey(value) {
 function cinemaCityValues(city) {
   const value = String(city || '').trim();
   return CINEMA_CITY_ALIASES.get(locationKey(value)) || (value ? [value] : undefined);
+}
+
+function scopePlanningLocations(locations, mediaSlugs) {
+  const cinemaOnly = mediaSlugs.length > 0 && mediaSlugs.every((slug) => slug === 'cinema');
+  if (!cinemaOnly) return { locations, ignoredStates: [] };
+  const cityLocations = locations.filter((location) => location.match === 'city');
+  const stateLocations = locations.filter((location) => location.match === 'state');
+  if (!cityLocations.length || !stateLocations.length) return { locations, ignoredStates: [] };
+  return { locations: cityLocations, ignoredStates: stateLocations };
 }
 
 function usefulCinemaValue(value) {
@@ -296,12 +306,13 @@ async function resolveLocations(requested, mediaSlugs) {
  * Builds the shortlist.
  *
  *   brief.service          'Bus' | 'Transit' | 'atm_branding'
- *   brief.budget           rupees; caps the per-unit rate that can be shown
+ *   brief.budget           rupees; caps per-unit rate only for costed plans
  *   brief.target_locations ['Lucknow', 'Kanpur']
  */
 async function prefetchForBrief(brief = {}, options = {}) {
-  const maxCandidates = options.maxCandidates || MAX_CANDIDATES;
-  const perCombination = options.perCombination || PER_COMBINATION;
+  const inventory = isInventory(brief);
+  const maxCandidates = options.maxCandidates || (inventory ? 500 : MAX_CANDIDATES);
+  const perCombination = options.perCombination || (inventory ? 500 : PER_COMBINATION);
 
   const media = resolveMedia(brief.service);
   const notes = [];
@@ -341,23 +352,56 @@ async function prefetchForBrief(brief = {}, options = {}) {
   }
 
   const nationalInventory = live.every((slug) => NATIONAL_MEDIA.has(slug));
-  const locations = nationalInventory ? [] : await resolveLocations(brief.target_locations, live);
+  let locations = nationalInventory ? [] : await resolveLocations(brief.target_locations, live);
+  const cinemaOnly = live.length > 0 && live.every((slug) => slug === 'cinema');
+  if (cinemaOnly) {
+    const scoped = scopePlanningLocations(locations, live);
+    if (scoped.ignoredStates.length) {
+      notes.push(
+        `Cinema geography was narrowed to the explicitly requested cities: ` +
+        `${scoped.locations.map((location) => location.requested).join(', ')}. ` +
+        `State labels (${scoped.ignoredStates.map((location) => location.requested).join(', ')}) were treated as grouping context, not whole-state searches.`
+      );
+      locations = scoped.locations;
+    }
+  }
   if (nationalInventory && (brief.target_locations || []).filter(Boolean).length) {
     notes.push(
       `${brief.service} inventory is national; ${brief.target_locations.join(', ')} is kept as the ` +
       'campaign geography and is not used as a city filter.'
     );
   }
+  const unmatchedLocations = [];
   for (const loc of locations) {
     if (loc.match === 'none') {
-      notes.push(`"${loc.requested}" is not a city or state carrying this medium. It was not searched.`);
+      unmatchedLocations.push(loc.requested);
     } else if (loc.match === 'state') {
       notes.push(`No city named "${loc.requested}"; searched the whole state of ${loc.state} instead.`);
     }
   }
+  if (unmatchedLocations.length) {
+    const stateFallbacks = locations
+      .filter((loc) => loc.match === 'state')
+      .map((loc) => loc.state)
+      .filter(Boolean);
+    if (stateFallbacks.length) {
+      notes.push(
+        `These requested places are not separate catalog markets for ${brief.service}: ` +
+        `${unmatchedLocations.join(', ')}. They are covered only when they fall inside ` +
+        `the searched state market(s): ${[...new Set(stateFallbacks)].join(', ')}.`
+      );
+    } else {
+      for (const requested of unmatchedLocations) {
+        notes.push(`"${requested}" is not a city or state carrying this medium. It was not searched.`);
+      }
+    }
+  }
 
-  // A single unit costing more than the entire budget is not a candidate.
-  const maxRate = Number(brief.budget) > 0 ? Number(brief.budget) : null;
+  // Costed plans use the budget as a per-rate ceiling. Inventory/options mode
+  // must list what exists, so it never drops a product just because it is dear.
+  const maxRate = !inventory && !cinemaOnly && Number(brief.budget) > 0
+    ? Number(brief.budget)
+    : null;
 
   const askedForLocations = !nationalInventory && (brief.target_locations || []).filter(Boolean).length > 0;
   const usable = locations.filter((l) => l.match !== 'none');
@@ -472,7 +516,11 @@ async function prefetchForBrief(brief = {}, options = {}) {
   // Strongest first, so the trim below drops the weakest rather than whatever
   // happened to be queried last.
   candidates.sort((a, b) => Number(b.priced_options) - Number(a.priced_options));
-  const prioritized = [...requestedCandidates, ...candidates]
+  // Keep at least one hit from every requested media/location combination in
+  // front of the global trim. Otherwise a large first market can fill the
+  // shortlist and make a later requested city look as if it had no inventory.
+  const coverageCandidates = found.map((hits) => hits[0]).filter(Boolean);
+  const prioritized = [...requestedCandidates, ...coverageCandidates, ...candidates]
     .filter((candidate, index, all) =>
       all.findIndex((item) => String(item.id) === String(candidate.id)) === index
     );
@@ -481,7 +529,9 @@ async function prefetchForBrief(brief = {}, options = {}) {
   if (truncated) {
     notes.push(
       `${prioritized.length} products matched; the ${maxCandidates} with requested titles first were kept. ` +
-        'Call search_products for anything the shortlist is missing.'
+        (inventory
+          ? 'Raise PLAN_INVENTORY_ROW_CAP or request a narrower geography to list more rows.'
+          : 'Call search_products for anything the shortlist is missing.')
     );
   }
 
@@ -541,6 +591,7 @@ module.exports = {
   resolveLocations,
   matchRequestedLocation,
   cinemaCityValues,
+  scopePlanningLocations,
   cinemaCompleteness,
   dedupeCinemaProducts,
   catalogNameKey,
